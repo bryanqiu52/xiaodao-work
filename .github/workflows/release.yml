@@ -1,0 +1,76 @@
+name: Release
+
+# 打 tag 就发版（`v1.2.0` 这种），也可以在 Actions 页面手动点一下试跑。
+#
+# **产物是草稿，不会自动发出去** —— 草稿对用户不可见（更新检查读的是"已发布的最新版"），
+# 所以发布前你还能验一遍包、改说明。确认没问题再去 Releases 点 Publish。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      # 建 Release、传附件都要它。**这是仓库自带的 token，不需要额外配密钥**
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # Rust 编译很贵，缓存住依赖，之后每次发版能省几分钟
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: 装依赖
+        run: npm ci
+
+      - name: 构建并建 Release（草稿）
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 这两个是更新签名用的。**没配的话这一步会直接失败** —— 这是故意的：
+          # 签不出名的包一旦发出去，用户端会校验不过、装不上
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 小刀工作台 ${{ github.ref_name }}
+          releaseBody: |
+            ⚠️ 这份说明还没写。
+
+            请把 `docs/releases/${{ github.ref_name }}.md` 的内容粘进来（流程见 RELEASE.md）。
+          # 草稿：发布前你自己看一眼，点 Publish 才对外可见
+          releaseDraft: true
+          prerelease: false
+
+      # 用仓库里那份 release 说明覆盖上面的占位正文。
+      # **文件名必须和 tag 一致**（tag `v1.2.0` → `docs/releases/v1.2.0.md`），
+      # 这条规矩在 RELEASE.md 里，也是这里能自动带货的原因。
+      - name: 用 docs/releases 里的说明覆盖 Release 正文
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "手动触发的试跑，没有 tag，跳过"
+            exit 0
+          fi
+          file="docs/releases/${{ github.ref_name }}.md"
+          if [ -f "$file" ]; then
+            gh release edit "${{ github.ref_name }}" --notes-file "$file"
+            echo "已用 $file 覆盖 Release 正文"
+          else
+            # 不判失败：Release 已经建出来了，这时候让整条流水线红掉只会更乱。
+            # 用一条刺眼的警告 + 正文里那句占位提醒，让人不会漏掉
+            echo "::warning title=缺 Release 说明::$file 不存在，正文还是占位内容。补上文件后重跑这一条，或直接在 Releases 里编辑。"
+          fi

@@ -1,0 +1,50 @@
+[package]
+name = "xiaodao_work"
+version = "1.2.0"
+description = "小刀工作台 —— 待办 / 番茄钟 / 记账 / GitHub 热榜的 Windows 桌面端"
+authors = ["XIFOFLY"]
+license = "MIT"
+repository = "https://github.com/bryanqiu52/xiaodao-work"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "xiaodao_work_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# 窗口的原生句柄（Windows 上是 HWND）—— 跨虚拟桌面搬运窗口要拿它去问系统。
+# tauri 自己就依赖同这一个版本，这里声明不会多装一份。
+raw-window-handle = "0.6"
+log = "0.4"
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-log = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-dialog = "2"
+# 开机自启（写注册表 Run 键）与系统通知（到期提醒走通知中心）
+tauri-plugin-autostart = "2"
+tauri-plugin-notification = "2"
+# 自动更新：updater 负责"查最新版 + 下载 + 校验签名 + 跑安装包"，
+# process 负责装完之后把应用重新拉起来。
+# **签名校验不是可选项** —— 没有它，任何人换掉 release 上的安装包都能推给用户。
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+dirs = "6"
+chrono = "0.4"
+notify = "6"
+opener = "0.7"
+# GitHub 热榜的 API 请求：走 Rust 侧没有 CORS / UA 限制，失败原因能带回界面
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

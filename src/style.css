@@ -1,0 +1,319 @@
+/* 全局样式与主题变量。
+ *
+ * 变量统一用 --xd-* 前缀：原插件里用的是宿主的 --dsw-alias-*（亮色近黑、暗色近白），
+ * 桌面端没有宿主，这里自建一套，亮/暗两套值成对出现，改一处必须两边都改。
+ */
+
+:root {
+  --xd-font: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* 界面字号缩放（1 = 100%）。所有字号/行高都乘这个系数，改一处整界面跟着变 */
+  --xd-font-scale: 1;
+
+  /* 卡片/面板的不透明度（0.4–1.0，默认 1）。
+     它**乘进**下面那几个卡面底色的 alpha 里 —— 调小就透出背景和壁纸。
+     注意：这是"面板背景透明"，不是整窗口透明（窗口本体始终不透明）。 */
+  --xd-glass: 1;
+
+  /* 背景与卡片。
+     卡片底色写成 rgba + `calc(alpha * var(--xd-glass))`：alpha 由"卡片不透明度"这个设置
+     统一缩放。默认 1 → 完全不透明；调小就透出底下的背景/壁纸。 */
+  --xd-bg: #f5f6f8;
+  --xd-bg-deep: #eceef2;
+  --xd-card: rgba(255, 255, 255, calc(1 * var(--xd-glass)));
+  --xd-card-hover: rgba(255, 255, 255, calc(1 * var(--xd-glass)));
+  --xd-card-sub: rgba(247, 248, 250, calc(1 * var(--xd-glass)));
+  --xd-border: #e5e7eb;
+  --xd-border-soft: #eef0f3;
+
+  /* 文字。三档是「主 / 次 / 弱」，亮色下**最弱那档也得读得清**：
+     #9aa1ab 压在浅底上只有约 2.6:1，侧栏图标和设置项说明全糊成一片灰
+     （2026-09-25 修）→ 次档 #5b616b（约 6.4:1）、弱档 #646a74（约 5.6:1），都过 WCAG AA；
+     三档之间仍要拉开层次，不能因为加深就塌成同一个颜色。
+     分工：次档给"要读的说明文字"（设置项描述、分区标题、搜索结果来源），
+     弱档只留给"扫一眼就过"的（时间戳、版本号、英文 key）。
+     **这里只管亮色**：暗色那套在下面的 [data-theme='dark']，对比度本来就够，别一起动。 */
+  --xd-text: #1f2328;
+  --xd-text-sub: #5b616b;
+  --xd-text-dim: #646a74;
+
+  /* 强调色（亮色 = 原插件的蓝 #4176E6） */
+  --xd-accent: #4176e6;
+  --xd-accent-hover: #3266d0;
+  --xd-accent-soft: #eef3fe;
+  --xd-accent-text: #ffffff;
+
+  /* 功能色 */
+  --xd-green: #2e9e6b;
+  --xd-orange: #d9822b;
+  --xd-red: #d64545;
+  --xd-blue: #4176e6;
+
+  /* 权重色（左侧 3px 色条只说权重） */
+  --xd-w-high: #e5484d;
+  --xd-w-mid: #4176e6;
+  --xd-w-low: #c9cdd3;
+
+  /* 投影与圆角 */
+  --xd-shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.08);
+  --xd-shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.1), 0 16px 40px rgba(16, 24, 40, 0.14);
+  /* 圆角对齐 iOS 的档位体系（HIG 里那套常用值）：
+       小控件 10 · 卡片 13 · 大卡片 / 浮层 16 · 模态 sheet 20。
+     我们这套取中间两档，跟 iOS 上的卡片观感一致。
+     注意 iOS 原生是**连续圆角**（squircle，超椭圆），CSS 的 border-radius 只能画圆弧，
+     16px 这个尺寸上肉眼几乎分不出差别，不值得为它引额外的复杂度。 */
+  --xd-radius: 12px;
+  --xd-radius-lg: 16px;
+  /* 窗口四个角。类比 iOS 的"大卡片 / 模态 sheet"那一档（16–20pt）取 16px ——
+     窗口本身就是一张大卡片。窗口是 transparent 的，实际形状由 `.win` 那层裁出来。
+     参考系：Win11 系统窗口 8px、macOS Big Sur+ 窗口 10px，16px 是"明显更圆但还不笨"的位置。 */
+  --xd-window-radius: 16px;
+
+  /* 浮层（完整表单 / 筛选 / 删除确认）的底色。
+     **半透明是刻意的**：磨砂效果全靠它 —— `backdrop-filter` 糊的是"透出来的那部分"，
+     底色一实就什么也看不见了，加模糊等于白加。
+     以前把它写成 0.94，是因为当时浮层会跟着卡片一起变透明，字和背后的字叠在一起读不了；
+     现在浮层有自己的底（不再受 --xd-glass 与沉浸模式影响），可以放心透一点。
+     卡片的透明度（--xd-glass）和沉浸模式**都不影响这里**。 */
+  --xd-sheet-bg: rgba(252, 252, 253, 0.82);
+  /* 三个浮层共用的模糊参数。改一处全局跟着变 —— 免得各写各的，看着像三个软件 */
+  --xd-sheet-blur: 18px;
+  --xd-sheet-saturate: 140%;
+  /* 卡片背后的东西被糊多少（由「卡片模糊度」设置驱动）。默认 0 = 不糊 */
+  --xd-card-blur: 0px;
+  /* 悬停底色：比卡片底再深/浅一档，用在"整条可点"的按钮上（分段控件未选中项） */
+  --xd-hover: rgba(15, 17, 21, 0.05);
+
+  /* 过渡 */
+  --xd-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* 暗色 = 原插件那套。
+ *
+ * 底色取自宿主的暗色底座（`bg-base` = rgb(21,21,23)、`layer-1` = rgb(35,35,36)），
+ * 插件的卡片/弹窗用的是"半透明白叠在底色上"（.06 / .07），这里折成实色写死 ——
+ * 桌面端没有宿主背景可叠，写实色更可控。
+ *
+ * **强调色是荧光绿 #C8FF3E**，不是蓝：插件暗色下就是这个，一眼能认出来。
+ * 它很亮，所以压在上面的文字必须是深色（--xd-accent-text = #0D0F0C）。
+ */
+[data-theme='dark'] {
+  --xd-bg: #151517;
+  --xd-bg-deep: #0e0f11;
+  --xd-card: rgba(35, 35, 38, calc(1 * var(--xd-glass)));
+  --xd-card-hover: rgba(42, 42, 46, calc(1 * var(--xd-glass)));
+  --xd-card-sub: rgba(28, 28, 31, calc(1 * var(--xd-glass)));
+  --xd-border: #2f2f32;
+  --xd-border-soft: #26262a;
+
+  --xd-text: #f9fafb;
+  --xd-text-sub: #cfd3d6;
+  --xd-text-dim: #adb2b8;
+
+  --xd-accent: #c8ff3e;
+  --xd-accent-hover: #d5ff5e;
+  --xd-accent-soft: rgba(200, 255, 62, 0.12);
+  --xd-accent-text: #0d0f0c;
+
+  --xd-green: #7cff67;
+  --xd-orange: #f7ad31;
+  --xd-red: #ff6b6b;
+  --xd-blue: #5686fe;
+
+  --xd-w-high: #ff6b6b;
+  --xd-w-mid: #0984e3;
+  --xd-w-low: rgba(255, 255, 255, 0.4);
+
+  --xd-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.45), 0 16px 48px rgba(0, 0, 0, 0.55);
+  --xd-shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5), 0 16px 40px rgba(0, 0, 0, 0.6);
+
+  /* 同上：暗色下取卡片底再亮一档，跟背后的列表拉开层次；同样留够透明度给磨砂 */
+  --xd-sheet-bg: rgba(38, 38, 42, 0.86);
+  --xd-hover: rgba(255, 255, 255, 0.08);
+}
+
+/* ── 壁纸 ──────────────────────────────────────────────────────────────────
+   壁纸垫在**所有内容之下**：`z-index: -1` 会绘制在 body 背景之上、其它内容之下，
+   所以窗口底色不会把它挡住，而卡片会盖在它上面（想让卡片透出壁纸就调低卡片不透明度）。 */
+.xd-wallpaper {
+  /* **absolute，不是 fixed**：它得跟着 `.win` 的圆角一起被裁掉。
+     fixed 是相对视口的，祖先的 `overflow: hidden` 管不到它 —— 那样四角会露出直角。
+     也**不用负 z-index**：跟 `.win-bg` 按 DOM 顺序叠（底色在下、壁纸在上），
+     父级背景和负层谁先画是规范里的细节，赌它容易翻车（壁纸消失过一次）。 */
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.xd-wallpaper-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* 模糊时顺手放大一档：模糊会让四周发虚露出底色，放大把它顶出视野之外 */
+.xd-wallpaper-img.blur {
+  filter: blur(8px);
+  transform: scale(1.06);
+}
+
+/* 蒙版：盖一层主题底色把壁纸压暗。浓度由设置控制 ——
+   这是"壁纸好看"和"卡片上的字看得清"之间的那根平衡杆 */
+.xd-wallpaper-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--xd-bg);
+}
+
+/* ── 沉浸模式：卡片变真毛玻璃 ────────────────────────────────────────────────
+   只把底色调低不模糊的话，壁纸的花纹会从卡片里透出来把字吃掉，所以两件一起做。
+   暗色/亮色的基准 alpha 不一样，分开写。 */
+[data-theme='dark'][data-immersive='1'] {
+  --xd-card: rgba(35, 35, 38, calc(0.42 * var(--xd-glass)));
+  --xd-card-hover: rgba(42, 42, 46, calc(0.52 * var(--xd-glass)));
+  --xd-card-sub: rgba(28, 28, 31, calc(0.34 * var(--xd-glass)));
+}
+
+[data-theme='light'][data-immersive='1'] {
+  --xd-card: rgba(255, 255, 255, calc(0.55 * var(--xd-glass)));
+  --xd-card-hover: rgba(255, 255, 255, calc(0.68 * var(--xd-glass)));
+  --xd-card-sub: rgba(247, 248, 250, calc(0.45 * var(--xd-glass)));
+}
+
+/* ── 卡片的模糊度 ──────────────────────────────────────────────────────────
+   由「卡片模糊度」设置驱动。**每个卡片类都必须列进来** —— 设置项叫"卡片"，
+   只管待办那几张就名不副实了（M3 加了番茄钟 / 热榜 / 记账之后尤其明显）。
+   这些类名来自各个组件的 scoped 样式 —— 全局 CSS 里照样能选中
+   （scoped 只是在元素上多加一个属性，类名本身不变）。**新增卡片时记得把类名补进来。**
+
+   `data-glass` 这道门控是性能考虑：模糊度为 0 时压根不上 backdrop-filter ——
+   哪怕是 blur(0px)，只要写了这条属性，浏览器就会为元素单独建一层合成层，
+   几十张卡片白烧 GPU。 */
+[data-glass='1'] .card,
+[data-glass='1'] .done,
+[data-glass='1'] .ctx,
+[data-glass='1'] .cp,
+[data-glass='1'] .setting-row,
+[data-glass='1'] .focus-box,
+[data-glass='1'] .focus-quick,
+[data-glass='1'] .gh-row,
+[data-glass='1'] .mcard,
+[data-glass='1'] .mrow,
+[data-glass='1'] .money-cats {
+  -webkit-backdrop-filter: blur(var(--xd-card-blur)) saturate(120%);
+  backdrop-filter: blur(var(--xd-card-blur)) saturate(120%);
+}
+
+/* 沉浸模式下**至少要糊 16px**：只把底色调低不糊的话，壁纸的花纹会从卡片里透出来把字吃掉。
+   用户调更大就听他的，调到 0 也保底 16 —— 沉浸的定义就是毛玻璃。
+   这里不受 data-glass 门控：沉浸模式本来就必须糊。 */
+[data-immersive='1'] .card,
+[data-immersive='1'] .done,
+[data-immersive='1'] .ctx,
+[data-immersive='1'] .cp,
+[data-immersive='1'] .setting-row,
+[data-immersive='1'] .focus-box,
+[data-immersive='1'] .focus-quick,
+[data-immersive='1'] .gh-row,
+[data-immersive='1'] .mcard,
+[data-immersive='1'] .mrow,
+[data-immersive='1'] .money-cats {
+  -webkit-backdrop-filter: blur(max(var(--xd-card-blur), 16px)) saturate(160%);
+  backdrop-filter: blur(max(var(--xd-card-blur), 16px)) saturate(160%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  /* 这三层必须全透。窗口是 transparent 的，任何一层只要带上底色，
+     圆角外面就会被填成直角 —— 看着就是"窗口旁边有一圈边"。 */
+  background: transparent;
+}
+
+body {
+  font-family: var(--xd-font);
+  font-size: calc(15.6px * var(--xd-font-scale));
+  color: var(--xd-text);
+  /* 窗口是 transparent 的，底色交给 `.win` 那层（它同时负责圆角裁剪）。
+     这里再铺一层不透明底，圆角外面就填满了 —— 四角会变回直角。 */
+  background: transparent;
+  overflow: hidden;
+  /* 桌面端：整窗默认不可选中文本，输入框/正文单独放开 */
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+input,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  user-select: text;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+/* 图标跟字号一起缩放。lucide 渲染出的 svg 带 width/height 属性，按属性值分档覆盖 ——
+   基准值已和字号同步放大 1.2 倍，保证「图标 : 文字」还是原来的比例。
+   注意：以后用新尺寸（16/18…）记得在这儿补一档，漏了就不参与缩放 */
+svg.lucide[width='10'] {
+  width: calc(12px * var(--xd-font-scale));
+  height: calc(12px * var(--xd-font-scale));
+}
+svg.lucide[width='11'] {
+  width: calc(13.2px * var(--xd-font-scale));
+  height: calc(13.2px * var(--xd-font-scale));
+}
+svg.lucide[width='12'] {
+  width: calc(14.4px * var(--xd-font-scale));
+  height: calc(14.4px * var(--xd-font-scale));
+}
+svg.lucide[width='13'] {
+  width: calc(15.6px * var(--xd-font-scale));
+  height: calc(15.6px * var(--xd-font-scale));
+}
+svg.lucide[width='14'] {
+  width: calc(16.8px * var(--xd-font-scale));
+  height: calc(16.8px * var(--xd-font-scale));
+}
+svg.lucide[width='15'] {
+  width: calc(18px * var(--xd-font-scale));
+  height: calc(18px * var(--xd-font-scale));
+}
+
+/* 滚动条：细、暗、hover 才明显 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--xd-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--xd-text-dim);
+}
+
+/* 通用：可复制文本 */
+.xd-select {
+  user-select: text;
+}

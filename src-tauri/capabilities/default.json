@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口的默认权限。Tauri 2 里前端的插件调用一律要在这里授权，缺了会被 ACL 拒掉——而且报错只落在日志里，界面上看着就是「点了没反应」。",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "dialog:default",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled",
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

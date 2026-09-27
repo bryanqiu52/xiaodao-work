@@ -1,0 +1,58 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "xiaodao_work",
+  "mainBinaryName": "xiaodao_work",
+  "version": "1.2.0",
+  "identifier": "com.xifofly.xiaodaowork",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "小刀工作台",
+        "width": 450,
+        "height": 980,
+        "minWidth": 360,
+        "minHeight": 480,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "visible": false,
+        "decorations": false,
+        "shadow": false,
+        "transparent": true
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "resources": []
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4QTI4NzVGODYwREY4NUYKUldSZitBMkdYNGVpYU12SWhBZDhTMUZna0RORGtwZDdCUzhTWGFvTHhsUHpwMTFhOU9hZlR2ZHgK",
+      "endpoints": [
+        "https://github.com/bryanqiu52/xiaodao-work/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

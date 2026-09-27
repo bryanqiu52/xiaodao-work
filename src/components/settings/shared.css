@@ -1,0 +1,605 @@
+/* 设置页样式。
+ *
+ * 规则统一带 .settings-view 前缀：面板是各自独立的 SFC，样式只能在父级作用域里生效，
+ * 所以这份是全局 CSS，不带前缀会污染整个应用（x-hub 踩过，特意加了检查脚本）。
+ */
+
+.settings-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sv-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+}
+
+.sv-title {
+  margin: 0;
+  font-size: calc(18px * var(--xd-font-scale));
+  font-weight: 600;
+  color: var(--xd-text);
+}
+
+.sv-close {
+  display: grid;
+  place-items: center;
+  width: calc(24px * var(--xd-font-scale));
+  height: calc(24px * var(--xd-font-scale));
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xd-text-dim);
+}
+
+.sv-close:hover {
+  background: var(--xd-card-sub);
+  color: var(--xd-text);
+}
+
+.sv-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+/* ── 左栏导航 ───────────────────────────────────────────────────────────── */
+
+.sv-nav {
+  flex: none;
+  width: 132px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+.sv-search {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 6px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--xd-card);
+  border: 1px solid var(--xd-border);
+}
+
+.sv-search:focus-within {
+  border-color: var(--xd-accent);
+}
+
+.sv-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: calc(13.8px * var(--xd-font-scale));
+}
+
+.sv-search-clear {
+  display: grid;
+  place-items: center;
+  width: calc(15px * var(--xd-font-scale));
+  height: calc(15px * var(--xd-font-scale));
+  border: none;
+  border-radius: 50%;
+  background: var(--xd-border-soft);
+  color: var(--xd-text-dim);
+}
+
+.sv-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 9px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--xd-text-sub);
+  font-size: calc(14.4px * var(--xd-font-scale));
+  text-align: left;
+  transition: all 0.14s var(--xd-ease);
+}
+
+.sv-nav-group {
+  font-weight: 500;
+}
+
+.sv-nav-group:hover {
+  background: var(--xd-card-sub);
+  color: var(--xd-text);
+}
+
+/* 大类展开时**不**吃品牌色块：那个色块留给"当前所在的子项"。
+   两级都高亮会看不出到底停在哪一页（x-hub 也是这么分的） */
+.sv-nav-group.active {
+  background: transparent;
+  color: var(--xd-text);
+  font-weight: 700;
+}
+
+.sv-nav-group.active > svg:first-child {
+  color: var(--xd-accent);
+}
+
+/* 子项容器：只在当前大类下渲染 */
+.sv-nav-kids {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 一条细竖线把子项串起来 —— 光靠缩进还不够，一眼扫过去容易当成同级项，
+   加了这根线才是"这些都挂在上面那个大类底下" */
+.sv-nav-kids::before {
+  content: '';
+  position: absolute;
+  left: 17px;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: var(--xd-border);
+}
+
+.sv-nav-caret {
+  margin-left: auto;
+  opacity: 0.6;
+  transition: transform 0.16s var(--xd-ease);
+}
+
+.sv-nav-group.active .sv-nav-caret {
+  transform: rotate(90deg);
+}
+
+/* 子项缩进要拉得够开：18px 时几乎跟大类左边缘平齐，看着像同级项 */
+.sv-nav-sub {
+  padding-left: 28px;
+  font-size: calc(13.8px * var(--xd-font-scale));
+  color: var(--xd-text-sub);
+}
+
+.sv-nav-sub:hover {
+  background: var(--xd-card-sub);
+  color: var(--xd-text);
+}
+
+.sv-nav-sub.active {
+  color: var(--xd-accent);
+  font-weight: 600;
+}
+
+.sv-nav-hit {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.sv-nav-hit:hover {
+  background: var(--xd-card-sub);
+}
+
+.sv-hit-title {
+  font-size: calc(13.8px * var(--xd-font-scale));
+  color: var(--xd-text);
+}
+
+.sv-hit-where {
+  font-size: calc(12px * var(--xd-font-scale));
+  color: var(--xd-text-sub);
+}
+
+.sv-hit-empty {
+  margin: 8px 4px;
+  font-size: calc(13.2px * var(--xd-font-scale));
+  color: var(--xd-text-dim);
+}
+
+/* ── 右栏内容 ───────────────────────────────────────────────────────────── */
+
+.sv-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 2px 6px 20px 4px;
+}
+
+.sv-sec {
+  margin-bottom: 18px;
+}
+
+.sv-sec-title {
+  margin: 0 0 8px;
+  font-size: calc(14.4px * var(--xd-font-scale));
+  font-weight: 600;
+  color: var(--xd-text-sub);
+  letter-spacing: 0.2px;
+}
+
+/* 分区下的一句话总述：说清"这一块整体是干什么的"。
+   用在容易让人犯嘀咕的地方 —— 比如"备份与恢复"为什么会出现在"数据"大类里 */
+.sv-sec-note {
+  margin: -4px 0 8px;
+  font-size: calc(12.6px * var(--xd-font-scale));
+  line-height: 1.55;
+  color: var(--xd-text-sub);
+}
+
+/*
+ * 设置项 = **竖排三段**：标题 / 说明 / 控件，控件贴着左边。
+ *
+ * 原来是"左文右控件"，但这个应用的窗口只有 450px 宽：
+ * 右栏再分给控件组 200px 之后，左边说明只剩几十像素 —— 中文一行放得下四个字，
+ * 一段话折成五六行，右边却只有一行控件、底下还留一大片空白（两头都不好看）。
+ *
+ * 试过"按控件类型分别处理"（滑块换行、开关不换）的打法，结果是**每种新控件都要再打一次补丁**
+ * （.sv-scale-box 盖住了，.sv-watches / .sv-seg 就漏了），而且换行与不换行混在一起，
+ * 竖直方向看起来参差不齐。统一竖排之后就一条规则，加什么控件都不用管。
+ */
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  padding: 10px 11px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--xd-card);
+  border: 1px solid var(--xd-border-soft);
+  transition: border-color 0.15s var(--xd-ease);
+}
+
+/* 控件不撑满、贴左边：开关 / 按钮 / 滑块组都从同一条竖线起头，扫下来才整齐 */
+.setting-row > :not(.setting-info) {
+  align-self: flex-start;
+}
+
+.setting-row:hover {
+  border-color: var(--xd-border);
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+  /* 标题和说明之间留一口气。2px 时两行字像挤在一起，读起来要用力分辨哪句是标题 */
+  gap: 3px;
+  min-width: 0;
+}
+
+.setting-name {
+  font-size: calc(15px * var(--xd-font-scale));
+  font-weight: 500;
+  color: var(--xd-text);
+}
+
+.setting-desc {
+  font-size: calc(12.6px * var(--xd-font-scale));
+  line-height: 1.55;
+  color: var(--xd-text-sub);
+  word-break: break-word;
+}
+
+/* 置灰的 M2 项：条目保留，让人知道有这回事，但清楚它现在不能用 */
+.setting-row.disabled {
+  opacity: 0.55;
+}
+
+/* 子设置：挂在上一行底下的（比如"壁纸"下面的蒙版 / 背景处理 / 覆盖顶部）。
+   靠缩进 + 一道浅竖线表明从属关系 —— 不然一排平齐的条目看不出谁管谁。 */
+.setting-row.sub {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 2px solid var(--xd-border-soft);
+}
+
+/* 禁用的控件别再给悬停反馈 —— 亮了却点不动比灰着更让人困惑 */
+.setting-row.disabled .toggle,
+.setting-row.disabled .sv-btn,
+.setting-row.disabled .sv-range {
+  cursor: not-allowed;
+}
+
+.setting-row.disabled .toggle:hover,
+.setting-row.disabled .sv-btn:hover {
+  border-color: var(--xd-border);
+  color: var(--xd-text-sub);
+  background: var(--xd-card-sub);
+}
+
+
+.setting-soon {
+  margin-top: 2px;
+  font-size: calc(12px * var(--xd-font-scale));
+  color: var(--xd-text-sub);
+}
+
+/* 开关 */
+.toggle {
+  flex: none;
+  position: relative;
+  width: 38px;
+  height: 21px;
+  border: 1px solid var(--xd-border);
+  border-radius: 999px;
+  background: var(--xd-card-sub);
+  transition: all 0.18s var(--xd-ease);
+}
+
+.toggle.on {
+  background: var(--xd-accent);
+  border-color: var(--xd-accent);
+}
+
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--xd-text-dim);
+  transition: all 0.18s var(--xd-ease);
+}
+
+.toggle.on .toggle-knob {
+  left: 19px;
+  background: #fff;
+}
+
+/* 小按钮 / 输入框 */
+.sv-btn {
+  flex: none;
+  padding: 5px 11px;
+  border-radius: 7px;
+  border: 1px solid var(--xd-border);
+  background: var(--xd-card-sub);
+  color: var(--xd-text-sub);
+  font-size: calc(13.8px * var(--xd-font-scale));
+  transition: all 0.15s var(--xd-ease);
+}
+
+.sv-btn:hover {
+  color: var(--xd-text);
+  border-color: var(--xd-text-dim);
+}
+
+/* 分段选择（背景处理那三档）：排成一组、选中的用强调色标出来 */
+.sv-seg {
+  flex: none;
+  display: flex;
+  gap: 4px;
+}
+
+.sv-btn.on {
+  border-color: var(--xd-accent);
+  background: var(--xd-accent-soft);
+  color: var(--xd-accent);
+  font-weight: 600;
+}
+
+.sv-btn.primary {
+  border-color: var(--xd-accent);
+  background: var(--xd-accent);
+  color: var(--xd-accent-text);
+  font-weight: 600;
+}
+
+.sv-btn.primary:hover {
+  background: var(--xd-accent-hover);
+}
+
+.sv-btn.danger {
+  border-color: color-mix(in srgb, var(--xd-red) 45%, transparent);
+  background: color-mix(in srgb, var(--xd-red) 12%, transparent);
+  color: var(--xd-red);
+}
+
+.sv-btn.danger:hover {
+  background: color-mix(in srgb, var(--xd-red) 20%, transparent);
+}
+
+.sv-input {
+  flex: none;
+  width: 150px;
+  padding: 5px 9px;
+  border: 1px solid var(--xd-border);
+  border-radius: 7px;
+  background: var(--xd-card-sub);
+  color: var(--xd-text);
+  outline: none;
+  font-size: calc(13.8px * var(--xd-font-scale));
+  transition: border-color 0.15s var(--xd-ease);
+}
+
+.sv-input:focus {
+  border-color: var(--xd-accent);
+}
+
+.sv-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 分段选择（主题模式、默认视图之类） */
+.sv-seg {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--xd-card-sub);
+  border: 1px solid var(--xd-border-soft);
+}
+
+.sv-seg button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--xd-text-sub);
+  font-size: calc(13.8px * var(--xd-font-scale));
+  transition: all 0.14s var(--xd-ease);
+}
+
+.sv-seg button:hover {
+  color: var(--xd-text);
+}
+
+.sv-seg button.on {
+  background: var(--xd-card);
+  color: var(--xd-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+}
+
+/* 路径行：只读路径 + 操作按钮 */
+.sv-path {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.sv-path-text {
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--xd-card-sub);
+  border: 1px solid var(--xd-border-soft);
+  color: var(--xd-text-sub);
+  font-size: calc(13.2px * var(--xd-font-scale));
+  font-family: 'Cascadia Code', Consolas, monospace;
+  word-break: break-all;
+  user-select: text;
+}
+
+.sv-path-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 白名单列表 */
+.sv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.sv-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--xd-card-sub);
+  border: 1px solid var(--xd-border-soft);
+}
+
+.sv-list-text {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(13.2px * var(--xd-font-scale));
+  font-family: 'Cascadia Code', Consolas, monospace;
+  color: var(--xd-text-sub);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.sv-list-del {
+  display: grid;
+  place-items: center;
+  width: calc(18px * var(--xd-font-scale));
+  height: calc(18px * var(--xd-font-scale));
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--xd-text-dim);
+}
+
+.sv-list-del:hover {
+  color: var(--xd-red);
+  background: color-mix(in srgb, var(--xd-red) 12%, transparent);
+}
+
+/* 领域分类编辑（设置 → 待办）：
+   分类列表竖排，所以这一行要能从"左右两栏"变成上下堆叠 */
+.dm-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* key 是写进 json 里的英文值，跟中文名并列显示，方便对照 */
+.dm-key {
+  margin-left: 5px;
+  color: var(--xd-text-dim);
+}
+
+/* 这个分类下还有多少条待办 —— 删之前先看一眼，别把在用的分类删了 */
+.dm-used {
+  margin-left: 5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--xd-accent) 14%, transparent);
+  color: var(--xd-text-dim);
+  font-family: inherit;
+}
+
+.dm-add {
+  margin-top: 5px;
+}
+
+/* 强调色选择 */
+.sv-swatches {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.sv-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: transform 0.14s var(--xd-ease);
+}
+
+.sv-swatch:hover {
+  transform: scale(1.12);
+}
+
+.sv-swatch.on {
+  border-color: var(--xd-text);
+}
+
+/* 搜索命中时闪一下，让人知道跳到哪了 */
+.setting-flash {
+  animation: sv-flash 1.6s var(--xd-ease);
+}
+
+@keyframes sv-flash {
+  0%,
+  40% {
+    background: var(--xd-accent-soft);
+  }
+}
