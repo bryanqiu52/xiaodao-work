@@ -28,6 +28,7 @@ const emit = defineEmits<{
   (e: 'remove'): void
   (e: 'edit'): void
   (e: 'transfer'): void
+  (e: 'note', text: string): void
   (e: 'result', text: string): void
 }>()
 
@@ -147,7 +148,12 @@ function cancel(): void {
       </div>
     </div>
 
-    <ContextBlock :item="props.item" :lib-root="props.libRoot" @result="emit('result', $event)" />
+    <ContextBlock
+      :item="props.item"
+      :lib-root="props.libRoot"
+      @note="emit('note', $event)"
+      @result="emit('result', $event)"
+    />
 
     <RemoveConfirm
       v-if="confirming"

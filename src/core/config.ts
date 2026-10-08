@@ -3,6 +3,8 @@
 // 两边都靠 `#[serde(default)]` / 默认值兜底，所以字段增减时只要两边一起改就行，
 // 老配置文件缺字段也不会起不来。
 
+import { DEFAULT_SORT } from './constants'
+
 export interface WindowState {
   width: number
   height: number
@@ -74,6 +76,13 @@ export interface AppConfig {
   library_root: string
   /** 默认视图：user / agent */
   default_view: string
+  /**
+   * 待办列表的排序口径：priority（重要程度）/ recent（最近更新）。
+   *
+   * **为什么存下来**：这是"我现在想怎么看"的偏好，不是一次性的动作 ——
+   * 每次开都得重切一遍的话，等于没这个功能。跟 `default_view` 一个道理。
+   */
+  todo_sort: string
   show_deleted: boolean
 
   /** md 打开方式：preview / system */
@@ -170,6 +179,7 @@ export function defaultConfig(): AppConfig {
     notified_data_root: '',
     library_root: '',
     default_view: 'user',
+    todo_sort: DEFAULT_SORT,
     show_deleted: false,
     md_open_mode: 'preview',
     preview_exe: '',

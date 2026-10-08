@@ -8,8 +8,9 @@ import {
   PRIORITY_RANK,
   STATUS_RANK,
   DEFAULT_STATUS,
+  DEFAULT_SORT,
 } from './constants'
-import type { FilterValue, TodoItem } from './types'
+import type { FilterValue, SortMode, TodoItem, TodoTrail } from './types'
 
 /** 期限的日粒度（排序用）：没期限返回空串 */
 export function dueDay(item: TodoItem): string {
@@ -81,12 +82,104 @@ export function compareWithinGroup(a: TodoItem, b: TodoItem): number {
 }
 
 /**
+ * 这条**最近一次被动过**的时间。
+ *
+ * 取自 `trail` 的最后一条 —— 那条流水是"只增不改"的，创建、改状态、编辑、流转、
+ * **评论和评审都往里记**，所以它的末尾天然就是"最后动它的那一刻"。
+ * 人和 AI 的改动都算：这个文件的特点就是两边共写，谁动的都该被看见。
+ *
+ * **为什么没有 `updatedAt` 字段**：加字段就得要求写它的每一方都记着写，
+ * 而 AI 那边的脚本是另一套代码 —— 少写一处，排序就开始骗人。
+ * 用已有的流水推算，谁都不会漏。
+ *
+ * 没有流水的（老数据、AI 直接造的条目）退回创建时间 —— 那至少是个稳定的顺序。
+ */
+export function lastTouchedAt(item: TodoItem): string {
+  const trail = Array.isArray(item.trail) ? item.trail : []
+  const at = trail[trail.length - 1]?.at
+  if (typeof at === 'string' && at.length > 0) return at
+  return typeof item.createdAt === 'string' ? item.createdAt : ''
+}
+
+/**
+ * 脉络（流水）按时间**从新到旧**排。
+ *
+ * 为什么不直接把数组倒过来（`reverse`）用：那等于**赌文件里存的顺序** ——
+ * 桌面端是往后追加（旧的在前），可 AI 侧的脚本未必这么写，
+ * 一旦它把新的往前插，倒过来就正好是反的，而且看不出错在哪。
+ * 按时间排，谁先谁后都由数据自己说了算，两边混着写也不会乱。
+ *
+ * 时间解析不出来的（手改过的、AI 写的别的格式）退回字符串倒序，至少顺序是稳的。
+ */
+/**
+ * 时间显示：今年的只写「月-日」（要时刻就补「时:分」），**跨年的补上年份**。
+ *
+ * 为什么分两种：一年里的记录，月日就够认了，每行都顶着 `2026-` 是纯粹的噪音；
+ * 但不补年份的话，去年的 `12-30` 和今年的一模一样 —— 跨年那几条的先后就看不出来了。
+ *
+ * 期限和流水共用这一套口径：两处都是"看一眼知道是什么时候"，不该各写各的。
+ */
+export function formatStamp(iso: string, withTime = true): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const p = (n: number): string => (n < 10 ? `0${n}` : String(n))
+  const md = `${p(d.getMonth() + 1)}-${p(d.getDate())}`
+  const y = d.getFullYear()
+  const day = y === new Date().getFullYear() ? md : `${y}-${md}`
+  if (!withTime) return day
+  return `${day} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+export function trailNewestFirst(trail: readonly TodoTrail[]): TodoTrail[] {
+  return [...trail].sort((a, b) => {
+    const tA = Date.parse(a.at)
+    const tB = Date.parse(b.at)
+    if (Number.isFinite(tA) && Number.isFinite(tB) && tA !== tB) return tB - tA
+    if (a.at === b.at) return 0
+    return a.at < b.at ? 1 : -1
+  })
+}
+
+/**
+ * 最近更新：最近动过的排最前。
+ *
+ * **先按时间戳比，比不出来才退回字符串比。** 为什么要绕一下：桌面端写的时间是
+ * ISO（`2026-10-08T06:30:00Z`），而 AI 侧的脚本写进来的未必是同一个格式
+ * （比如 `2026-10-08 14:30`）。这两串直接按字符比，空格会排在 `T` 前面，
+ * 于是 AI 刚改过的那条被算成"更早" —— 恰好是这个功能最不该出错的地方。
+ * 解析成时间戳之后两种格式能放在同一把尺子上量。
+ *
+ * 时间相同（同一瞬间改的两条）时退回重要程度那套 —— 否则它们的顺序会随机跳。
+ */
+export function compareByRecent(a: TodoItem, b: TodoItem): number {
+  const atA = lastTouchedAt(a)
+  const atB = lastTouchedAt(b)
+  const tA = Date.parse(atA)
+  const tB = Date.parse(atB)
+  if (Number.isFinite(tA) && Number.isFinite(tB)) {
+    if (tA !== tB) return tA < tB ? 1 : -1
+  } else if (atA !== atB) {
+    // 解析不出来的怪格式（手改过的、AI 写的别的样式）：退回字符串比，至少顺序是稳的
+    return atA < atB ? 1 : -1
+  }
+  return compareWithinGroup(a, b)
+}
+
+/**
  * 我的视图：未完成按 优先级 → 期限近远 → 创建时间新→旧 排。
  *
  * 小刀视图：先按状态分组 progress → waiting → todo → done → paused
  * （进行中最前、暂停最后），**同一组内**再用上面那套。
+ *
+ * 切到「最近更新」时**两套都不走了**：就是纯按最后动过的时间看，
+ * 小刀视图那套状态分组也让位 —— 否则刚被 AI 动过的那条会被压在分组里看不见，
+ * 而要的恰恰就是"一眼看见谁刚变了"。
  */
-export function makeCompareItems(agentView: boolean): (a: TodoItem, b: TodoItem) => number {
+export function makeCompareItems(
+  agentView: boolean,
+  sort: SortMode = DEFAULT_SORT,
+): (a: TodoItem, b: TodoItem) => number {
+  if (sort === 'recent') return compareByRecent
   if (!agentView) return compareWithinGroup
   return (a, b) => {
     const rankA = STATUS_RANK[a.status] ?? STATUS_RANK[DEFAULT_STATUS] ?? 2
@@ -97,8 +190,12 @@ export function makeCompareItems(agentView: boolean): (a: TodoItem, b: TodoItem)
 }
 
 /** 列表数据：先按归属切一刀，再筛掉已完成、按当前视图的规则排序 */
-export function visibleItems(items: readonly TodoItem[], owner: string): TodoItem[] {
-  const compare = makeCompareItems(owner === OWNER_AGENT)
+export function visibleItems(
+  items: readonly TodoItem[],
+  owner: string,
+  sort: SortMode = DEFAULT_SORT,
+): TodoItem[] {
+  const compare = makeCompareItems(owner === OWNER_AGENT, sort)
   return items
     .filter((item) => isAgentItem(item) === (owner === OWNER_AGENT))
     .filter((item) => item.doneAt === null)

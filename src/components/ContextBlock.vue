@@ -7,14 +7,36 @@ import { ChevronRight } from 'lucide-vue-next'
 import DetailText from './DetailText.vue'
 import IdChip from './IdChip.vue'
 import ArtifactChip from './ArtifactChip.vue'
+import { TRAIL_KIND_LABELS } from '../core/constants'
+import { formatStamp, trailNewestFirst } from '../core/view'
 import type { TodoItem } from '../core/types'
 
 const props = defineProps<{ item: TodoItem; libRoot: string }>()
-const emit = defineEmits<{ (e: 'result', text: string): void }>()
+const emit = defineEmits<{
+  (e: 'result', text: string): void
+  (e: 'note', text: string): void
+}>()
 
 const open = ref(false)
+const noteText = ref('')
 
-const trail = computed(() => [...props.item.trail].slice().reverse())
+/**
+ * 手动往流水里记一笔。
+ *
+ * 为什么要有这个口子：流水原先只能由动作自动产生（改状态、编辑、评审、移交），
+ * 想自己跟进进度的人没地方写，只能往正文里堆 —— 可正文说的是「这条要干什么」，
+ * 进度是「后来发生了什么」，混在一起正文越攒越长，而且正文自己不带时间。
+ */
+function submitNote(): void {
+  const text = noteText.value.trim()
+  if (text.length === 0) return
+  emit('note', text)
+  noteText.value = ''
+}
+
+// 从新到旧。**按时间排，不是把数组倒过来** —— 文件里的先后取决于谁写的
+// （桌面端往后追加，AI 侧的脚本未必），倒过来用等于赌它存的顺序
+const trail = computed(() => trailNewestFirst(props.item.trail))
 const hasOrigin = computed(
   () => props.item.origin.from.length > 0 || props.item.origin.why.length > 0,
 )
@@ -23,11 +45,9 @@ const count = computed(
   () => trail.value.length + props.item.relates.length + props.item.files.length + (hasOrigin.value ? 1 : 0),
 )
 
+/** 跨年补年份那套口径在 `view.formatStamp` 里，跟卡片上的期限共用一个 */
 function stamp(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const p = (n: number): string => (n < 10 ? `0${n}` : String(n))
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+  return formatStamp(iso)
 }
 </script>
 
@@ -70,15 +90,27 @@ function stamp(iso: string): string {
         </div>
       </template>
 
-      <template v-if="trail.length > 0">
-        <p class="ctx-label">流水</p>
-        <ul class="ctx-trail">
-          <li v-for="(t, i) in trail" :key="`${t.at}-${i}`">
-            <span class="ctx-time">{{ stamp(t.at) }}</span>
-            <span class="ctx-text xd-select">{{ t.text }}</span>
-          </li>
-        </ul>
-      </template>
+      <!-- 「流水」这块不随有没有流水而隐藏：正是一条还没有流水的待办，
+           才最需要这个输入框 —— 否则想跟进进度的人压根找不到地方写 -->
+      <p class="ctx-label">流水</p>
+      <input
+        v-model="noteText"
+        class="ctx-note"
+        type="text"
+        placeholder="记一笔（回车存进流水，自动带时间）"
+        spellcheck="false"
+        @keydown.enter="submitNote"
+        @keydown.esc="noteText = ''"
+      />
+      <ul v-if="trail.length > 0" class="ctx-trail">
+        <li v-for="(t, i) in trail" :key="`${t.at}-${i}`">
+          <span class="ctx-time">
+            {{ stamp(t.at) }}
+            <span class="ctx-kind" :class="`k-${t.kind}`">{{ TRAIL_KIND_LABELS[t.kind] ?? '' }}</span>
+          </span>
+          <span class="ctx-text xd-select">{{ t.text }}</span>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -150,19 +182,46 @@ function stamp(iso: string): string {
   gap: 4px;
 }
 
+/* 记一笔：展开脉络就能写，回车直接进流水（自动带时间）。
+   手动跟进进度以前只能往正文里塞 —— 正文越攒越长，还不带时间 */
+.ctx-note {
+  width: 100%;
+  margin-bottom: 7px;
+  padding: 5px 8px;
+  border: 1px solid var(--xd-border);
+  border-radius: 6px;
+  background: var(--xd-card-sub);
+  color: var(--xd-text);
+  outline: none;
+  font-size: calc(13.2px * var(--xd-font-scale));
+  transition: border-color 0.15s var(--xd-ease);
+}
+
+.ctx-note:focus {
+  border-color: var(--xd-accent);
+}
+
+.ctx-note::placeholder {
+  color: var(--xd-text-dim);
+}
+
 .ctx-trail {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  /* 条与条之间留足空隙：一行时间 + 一段话算一条，挤在一起分不清哪段归哪个时间 */
+  gap: 7px;
 }
 
+/* 时间独占一行，下一行才是这条流水说了什么 ——
+   原来时间是贴在这段话左边的，文字一长就被时间挤成窄条，读起来要来回折眼 */
 .ctx-trail li {
   display: flex;
-  gap: 6px;
-  align-items: baseline;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
 }
 
 .ctx-time {
@@ -170,5 +229,25 @@ function stamp(iso: string): string {
   color: var(--xd-text-dim);
   font-size: calc(12px * var(--xd-font-scale));
   font-family: 'Cascadia Code', Consolas, monospace;
+}
+
+/* 类型标：评审不单独开一栏，就靠这个标在流水里挑出来 */
+.ctx-kind {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 0 5px;
+  border: 1px solid var(--xd-border-soft);
+  border-radius: 4px;
+  color: var(--xd-text-dim);
+  font-family: inherit;
+  font-size: calc(11px * var(--xd-font-scale));
+  line-height: calc(16px * var(--xd-font-scale));
+}
+
+/* 评审和转手是"别人动了这条"，标出来 —— 翻一长串流水时先看见这两类 */
+.ctx-kind.k-review,
+.ctx-kind.k-transfer {
+  border-color: var(--xd-accent);
+  color: var(--xd-accent);
 }
 </style>

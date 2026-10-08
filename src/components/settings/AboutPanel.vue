@@ -9,12 +9,13 @@ import { inject, ref } from 'vue'
 import { Check, ChevronDown, ChevronRight, Copy, ExternalLink } from 'lucide-vue-next'
 import { logToBackend, tauriApi } from '../../api/tauri'
 import { checkUpdate as runCheckUpdate, updateState } from '../../composables/useUpdate'
+import { GITHUB_URL } from '../../core/constants'
 
 const showToast = inject<(s: string) => void>('showToast', () => {})
 
 // 界面上显示的版本号。package.json / tauri.conf.json / Cargo.toml 三处都必须是
 // 三段 semver（安装包和 Windows 资源文件不认两段），这里跟它们保持一致
-const VERSION = '1.2.0'
+const VERSION = '1.2.1'
 
 /** 工作室信息。**对外统一口径**，取自品牌资料里的联系方式那一节，别另起一套 */
 const STUDIO = {
@@ -34,6 +35,28 @@ const STUDIO = {
  * 写了就是噪音（用户翻这个是想知道"我升级会得到什么"）。
  */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '1.2.1',
+    date: '2026-10-08',
+    items: [
+      '待办可以换排序了：默认「重要程度」，点顶栏那颗按钮切成「最近更新」—— 谁刚动过谁排最前，讨论中的变化不用再翻着找',
+      '「最近更新」把你和小刀的改动都算上：改状态、编辑、评论、评审，谁动的都算',
+      '排序选了会记住，下次打开还是它',
+      '切到「最近更新」时，卡片上会写出这条最近是什么时候动的 —— 排到前面却看不出为什么，比不排还让人困惑',
+      '脉络里的流水改成按**时间**从新到旧排：原来只是把存的顺序倒过来，AI 写的顺序不一样就会排反',
+      '脉络里每条的时间单独一行、内容另起一行，长句子不再被挤成窄条（跨年的会带上年份）',
+      '期限跨年也会补上年份：明年的「03-05」跟今年的不再长得一样',
+      '脉络里可以**自己记一笔**了：进度不用再往正文里堆，写一句回车就进流水，自动带上时间（记完这条在「最近更新」里也会排到前面）',
+      '流水每条前面加了**类型标**（评审 / 移交 / 编辑 / 手记…）：评审本来就记在流水里，不用再单独开一栏，挂个标就能从一长串里挑出来',
+      '编辑里的「汇报概要」改名「一句话结论」：它管的是卡片上显示哪句，跟「记一笔」（后来发生了什么）不是一回事，原来那个名字容易混',
+      '新建待办时也能写「一句话结论」了：原来只有点 ✎ 改的时候能写，那张"完整"表单反而没有',
+      '状态「等你回话」改名「待回复」：原来那句是站在小刀的活上说的，同一条转到你手上就成了"你等你自己的回话"',
+      '「我的」里也会显示状态徽章了，但**只在不是「排队」的时候** —— 转手回来的活如果是暂停的，现在看得出来',
+      '状态筛选在「我的」里也能用了（原来只有小刀视图有）：状态是通用的，「待回复」既可以是小刀在等你，也可以是你在等客户回话',
+      '「关于 → 更新」里加了源码仓库地址',
+      '更新日志只保留开源发布以来的版本记录（1.2.0 起），更早那几条不再显示',
+    ],
+  },
   {
     version: '1.2.0',
     date: '2026-09-27',
@@ -173,6 +196,17 @@ async function openLink(url: string): Promise<void> {
         <span class="setting-desc">每天自动查一次；有新版会提示你改了什么，点一下它自己下载安装</span>
       </div>
       <button type="button" class="sv-btn" @click="checkUpdate">检查更新</button>
+    </div>
+
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-name">源码仓库</span>
+        <span class="setting-desc">更新从这里发出来；想看代码、提问题也在这儿</span>
+      </div>
+      <button type="button" class="sv-btn link" @click="openLink(GITHUB_URL)">
+        <ExternalLink :size="12" :stroke-width="2" />
+        {{ GITHUB_URL.replace('https://', '') }}
+      </button>
     </div>
   </section>
 

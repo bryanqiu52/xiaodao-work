@@ -12,11 +12,12 @@ import StatusBar from './StatusBar.vue'
 import DetailText from './DetailText.vue'
 import RemoveConfirm from './RemoveConfirm.vue'
 import { briefOf, artifactPaths } from '../core/brief'
-import { PRIORITY_LABELS, STATUS_LABELS } from '../core/constants'
+import { DEFAULT_STATUS, normalizeSort, PRIORITY_LABELS, STATUS_LABELS } from '../core/constants'
 import { useDomains } from '../composables/useDomains'
+import { configStore } from '../stores/config'
 
 const { label: domainName } = useDomains()
-import { isDueToday, isOverdue } from '../core/view'
+import { formatStamp, isDueToday, isOverdue, lastTouchedAt } from '../core/view'
 import type { Status, TodoItem } from '../core/types'
 
 const props = defineProps<{
@@ -38,6 +39,7 @@ const emit = defineEmits<{
   (e: 'transfer'): void
   (e: 'snooze'): void
   (e: 'status', next: Status): void
+  (e: 'note', text: string): void
   (e: 'result', text: string): void
 }>()
 
@@ -56,14 +58,22 @@ const overdue = computed(() => isOverdue(props.item))
  */
 const needsNudge = computed(() => overdue.value || isDueToday(props.item))
 
+/** 跨年补上年份：不然明年的「03-05」跟今年的长得一模一样，看不出是哪一年 */
 function dueText(): string {
   const d = props.item.dueAt
   if (!d) return ''
-  const date = new Date(d)
-  if (Number.isNaN(date.getTime())) return d
-  const p = (n: number): string => (n < 10 ? `0${n}` : String(n))
-  return `${p(date.getMonth() + 1)}-${p(date.getDate())}`
+  return formatStamp(d, false)
 }
+
+/**
+ * 「最近更新」模式下，卡片上要写出"它最近是什么时候动的"。
+ *
+ * 排序依据看不见是最难受的：顺序变了却说不清为什么，只会觉得"它怎么跑上去了"。
+ * 只在按最近更新排时出现 —— 按重要程度排的时候这行是白噪音。
+ */
+const recentAt = computed(() =>
+  normalizeSort(configStore.cfg.todo_sort) === 'recent' ? formatStamp(lastTouchedAt(props.item)) : '',
+)
 </script>
 
 <template>
@@ -74,7 +84,14 @@ function dueText(): string {
       <span v-if="props.showOwner" class="owner-tag">
         {{ props.item.owner === 'agent' ? '小刀的' : '我的' }}
       </span>
-      <span v-if="props.agentView" class="badge" :class="`st-${props.item.status}`">
+      <!-- 小刀视图常驻；「我的」这条只在**不是排队**时才冒出来。
+           待办会在两边转手（转回给你时状态原样保留），一条「已暂停」的活回到你的列表
+           却看不出它停着，那才是问题。常态的排队不标，免得满屏都是同一个词 -->
+      <span
+        v-if="props.agentView || props.item.status !== DEFAULT_STATUS"
+        class="badge"
+        :class="`st-${props.item.status}`"
+      >
         {{ STATUS_LABELS[props.item.status] }}
       </span>
       <span v-if="props.item.deletedAt" class="deleted-tag">已删除</span>
@@ -135,13 +152,19 @@ function dueText(): string {
       />
     </div>
 
-    <div v-if="props.agentView" class="card-meta">
-      <span class="weight" :class="`w-${props.item.priority}`">
+    <div v-if="props.agentView || recentAt.length > 0" class="card-meta">
+      <span v-if="props.agentView" class="weight" :class="`w-${props.item.priority}`">
         权重 {{ PRIORITY_LABELS[props.item.priority] }}
       </span>
+      <span v-if="recentAt.length > 0" class="recent-at">最近 {{ recentAt }}</span>
     </div>
 
-    <ContextBlock :item="props.item" :lib-root="props.libRoot" @result="emit('result', $event)" />
+    <ContextBlock
+      :item="props.item"
+      :lib-root="props.libRoot"
+      @note="emit('note', $event)"
+      @result="emit('result', $event)"
+    />
 
     <div v-if="props.agentView" class="card-status">
       <StatusBar :status="props.item.status" @change="emit('status', $event)" />
@@ -369,6 +392,16 @@ function dueText(): string {
 
 .card-meta {
   margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 「最近更新」排序下那句"最近 10-08 14:22"：说明这条为什么排在这儿 */
+.recent-at {
+  font-size: calc(12.6px * var(--xd-font-scale));
+  color: var(--xd-text-dim);
+  font-family: 'Cascadia Code', Consolas, monospace;
 }
 
 .weight {

@@ -74,6 +74,10 @@ fn default_library_root() -> String {
 fn default_view() -> String {
     "user".to_string()
 }
+/// 待办排序：默认按重要程度（priority）。recent = 最近更新（谁刚动过谁在前）
+fn default_sort() -> String {
+    "priority".to_string()
+}
 fn default_md_mode() -> String {
     "preview".to_string()
 }
@@ -206,6 +210,10 @@ pub struct AppConfig {
     /// 默认视图：user（我的）/ agent（小刀的）
     #[serde(default = "default_view")]
     pub default_view: String,
+    /// 待办列表的排序口径：priority（重要程度，默认）/ recent（最近更新）。
+    /// 存盘是为了"切过一次就一直是它"；认不出来的值由前端兜回 priority
+    #[serde(default = "default_sort")]
+    pub todo_sort: String,
     /// 显示已删除条目（只影响列表展示，不删记录）
     #[serde(default)]
     pub show_deleted: bool,
@@ -319,6 +327,7 @@ impl Default for AppConfig {
             notified_data_root: String::new(),
             library_root: default_library_root(),
             default_view: default_view(),
+            todo_sort: default_sort(),
             show_deleted: false,
             md_open_mode: default_md_mode(),
             preview_exe: default_preview_exe(),

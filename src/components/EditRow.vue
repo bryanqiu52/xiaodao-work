@@ -44,7 +44,7 @@ function save(): void {
       v-model="draft.summary"
       class="edit-summary"
       type="text"
-      placeholder="汇报概要（一句话结论；空着就自动取底稿第一段）"
+      placeholder="一句话结论（卡片上显示这句；空着就自动取底稿第一段）"
       spellcheck="false"
       @keydown.enter="save"
       @keydown.esc="emit('cancel')"

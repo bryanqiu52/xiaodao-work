@@ -21,7 +21,15 @@ import { snoozeItem, SNOOZE_HOURS } from '../composables/useReminder'
 import { applyPatch } from '../core/patch'
 import { createItem, markDeleted, markDone, recordReview, recordTransfer, restoreItem } from '../core/rules'
 import { draftToInput, draftToPatch, emptyDraft, type DraftFields } from '../core/draft'
-import { FLASH_MS, OWNER_AGENT, PRIORITY_LABELS, STATUS_FILTER_OPTIONS, STATUS_LABELS } from '../core/constants'
+import {
+  FLASH_MS,
+  OWNER_AGENT,
+  PRIORITY_LABELS,
+  SORT_SHORT,
+  STATUS_FILTER_OPTIONS,
+  STATUS_LABELS,
+  normalizeSort,
+} from '../core/constants'
 import { useDomains } from '../composables/useDomains'
 
 const { label: domainName } = useDomains()
@@ -35,9 +43,9 @@ import {
   matchesStatus,
   visibleItems,
 } from '../core/view'
-import type { ReviewAction, Status, TodoItem } from '../core/types'
+import type { ReviewAction, SortMode, Status, TodoItem } from '../core/types'
 import { commit, loadTodos, todoStore, undo, undoState } from '../stores/todo'
-import { configStore } from '../stores/config'
+import { configStore, saveConfig } from '../stores/config'
 
 // ── 视图状态 ──────────────────────────────────────────────────────────────
 
@@ -55,6 +63,30 @@ const status = ref<string | null>(null)
  * 注意它**不吃**搜索 / 领域 / 权重之外的东西：这几个条件照样生效（见 completed）。
  */
 const showDone = ref(false)
+
+/**
+ * 排序口径。**从配置读、切了就写回配置**。
+ *
+ * 这是"我现在想怎么看"的偏好而不是一次性动作 —— 每次开都得重切一遍的话，
+ * 等于没这个功能。所以存在 `todo_sort` 里（TS 与 Rust 两边都加了字段）。
+ */
+const sortMode = computed<SortMode>(() => normalizeSort(configStore.cfg.todo_sort))
+
+/**
+ * 在「重要程度 / 最近更新」之间切换。**切完不弹提示**。
+ *
+ * 原来用的是面板顶上那行 flash：它一出现就把下面的卡片挤下去、一消失又弹回来，
+ * 点一下按钮界面抖两下，比没提示还难受。
+ * 换成浮层 toast 也不行 —— `showToast` 是设置页提供的，待办面板拿不到。
+ *
+ * 而这里其实**不需要提示**：按钮上的字当场就从「重要」变成「最近」，
+ * 列表也立刻重排 —— 变动本身就在眼前，再糊一句话上去是多余的。
+ */
+async function toggleSort(): Promise<void> {
+  const next: SortMode = sortMode.value === 'recent' ? 'priority' : 'recent'
+  await saveConfig({ todo_sort: next })
+}
+
 const sheetOpen = ref(false)
 const editingId = ref<string | null>(null)
 const transferringId = ref<string | null>(null)
@@ -87,7 +119,7 @@ const base = computed<TodoItem[]>(() =>
 )
 
 /** 该归属下未完成、已排好序（还没套搜索 / 领域 / 权重 / 状态） */
-const pool = computed(() => visibleItems(base.value, owner.value))
+const pool = computed(() => visibleItems(base.value, owner.value, sortMode.value))
 
 const weightPool = computed(() =>
   pool.value.filter((i) => matchesKeyword(i, keyword.value.trim()) && matchesDomain(i, domain.value)),
@@ -276,6 +308,21 @@ async function changeStatus(item: TodoItem, next: Status): Promise<void> {
   }, `状态改为「${STATUS_LABELS[next] ?? next}」`)
 }
 
+/**
+ * 手动记一笔：只往流水里加一条，其它字段一个不动。
+ *
+ * 走 `applyPatch` 的 `trailNote` —— 那个口子本来是给 AI 侧留的，桌面端一直没有入口，
+ * 于是想自己跟进进度的人只能往正文里写，正文越攒越长、还不带时间。
+ */
+async function addNote(item: TodoItem, text: string): Promise<void> {
+  const note = text.trim()
+  if (note.length === 0) return
+  await run((draft) => {
+    const it = draft.find((i) => i.id === item.id)
+    if (it) applyPatch(it, { trailNote: note })
+  }, '已记一笔')
+}
+
 async function saveEdit(item: TodoItem, d: DraftFields): Promise<void> {
   await run((draft) => {
     const it = draft.find((i) => i.id === item.id)
@@ -392,6 +439,26 @@ onBeforeUnmount(() => {
           <!-- 搜索时那几个条件不生效，数字就没意义了 —— 别挂着一个会误导人的角标 -->
           <span v-if="filterCount && !searching" class="pane-filter-n">{{ filterCount }}</span>
         </button>
+        <!-- 排序切换。**一步点得到** —— 找"刚有变动的那条"是高频动作，
+             塞进筛选抽屉里每次得两步，那就没人用了。按钮上显示的是**当前口径**：
+             点它就是切到另一档，所以不用再拉一个下拉。 -->
+        <button
+          type="button"
+          class="pane-chip pane-chip-sort"
+          :class="{ on: sortMode === 'recent' }"
+          :aria-pressed="sortMode === 'recent'"
+          :disabled="searching"
+          :title="
+            searching
+              ? '搜索时结果不分排序（按关键词全给出来），清空搜索后恢复'
+              : sortMode === 'recent'
+                ? '正在按最近更新排：谁刚动过谁在前（人和 AI 动的都算）。点回「重要程度」'
+                : '正在按重要程度排：高→中→低，再看期限。点切到「最近更新」'
+          "
+          @click="toggleSort"
+        >
+          {{ SORT_SHORT[sortMode] ?? SORT_SHORT['priority'] }}
+        </button>
         <!-- 「已完成」勾选：原插件就摆在筛选右边。勾上 = **只看已完成**，
              取消 = 回到未完成清单（两个是互斥的两份清单，不是叠加）。 -->
         <button
@@ -414,8 +481,10 @@ onBeforeUnmount(() => {
         </button>
       </div>
 
-      <!-- 状态筛选只在小刀视图出现 -->
-      <div v-if="agentView && !showDone" class="pane-chips">
+      <!-- 状态筛选两个视图都给：状态本来就是通用的 ——
+           「待回复」可以是小刀在等你，也可以是你在等客户回话，没理由只让小刀视图用。
+           顺带补掉一个坑：以前在小刀视图选了状态再切回「我的」，筛选还生效却看不见 -->
+      <div v-if="!showDone" class="pane-chips">
         <button
           type="button"
           class="pane-chip"
@@ -480,6 +549,7 @@ onBeforeUnmount(() => {
               @remove="softRemove(it)"
               @edit="editingId = it.id"
               @status="changeStatus(it, $event)"
+              @note="addNote(it, $event)"
               @transfer="transferringId = transferringId === it.id ? null : it.id"
               @result="showFlash($event)"
             />
@@ -565,6 +635,7 @@ onBeforeUnmount(() => {
               @done="toggleDone(it)"
               @remove="softRemove(it)"
               @edit="editingId = it.id"
+              @note="addNote(it, $event)"
               @transfer="transferringId = transferringId === it.id ? null : it.id"
               @result="showFlash($event)"
             />
@@ -578,6 +649,7 @@ onBeforeUnmount(() => {
               @remove="softRemove(it)"
               @edit="editingId = it.id"
               @status="changeStatus(it, $event)"
+              @note="addNote(it, $event)"
               @transfer="transferringId = transferringId === it.id ? null : it.id"
               @result="showFlash($event)"
             />
@@ -815,6 +887,11 @@ onBeforeUnmount(() => {
 
 /* 筛选按钮右边的「已完成」勾选：跟领域/权重那些 chip 一个长相，但它常驻在这一行 */
 .pane-chip-done {
+  flex: none;
+}
+
+/* 排序切换：同样常驻这一行，不许被搜索框挤扁 */
+.pane-chip-sort {
   flex: none;
 }
 

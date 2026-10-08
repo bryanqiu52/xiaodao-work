@@ -17,6 +17,13 @@ export type Owner = 'user' | 'agent'
 export type Status = 'todo' | 'progress' | 'paused' | 'waiting' | 'done'
 export type Priority = 'high' | 'mid' | 'low'
 
+/**
+ * 待办列表的排序口径。
+ *   - `priority`：重要程度（高→中→低，再看期限近远）—— **默认**；
+ *   - `recent`：最近更新 —— 谁最近被动过谁排最前（人和 AI 的改动都算）。
+ */
+export type SortMode = 'priority' | 'recent'
+
 export type ReviewAction = 'approved' | 'rejected' | 'shelved'
 export type TrailKind = 'create' | 'status' | 'edit' | 'review' | 'transfer' | 'comment'
 
@@ -48,7 +55,12 @@ export interface TodoItem {
   title: string
   /** 工作底稿：只追加不覆盖 */
   detail: string
-  /** 汇报概要（一句话结论）；空串时展示层回退 detail 第一段 */
+  /**
+   * 一句话结论：卡片上显示的那句。空串时展示层回退 detail 第一段。
+   *
+   * 别跟「流水」搞混 —— 这里是"现在是什么结论"（会被覆盖），
+   * 流水是"后来发生了什么"（只增不改、带时间）。
+   */
   summary: string
   domain: Domain
   owner: Owner

@@ -115,6 +115,19 @@ function removeRelate(id: string): void {
           @input="set('detail', ($event.target as HTMLTextAreaElement).value)"
         />
       </div>
+      <!-- 结论也放进完整表单：行内编辑一直有这一栏，底部那张"完整"表单反而没有，
+           结果是新建时写不了结论，想补只能事后点 ✎ -->
+      <div class="dfe-row">
+        <span class="dfe-label">结论</span>
+        <input
+          class="dfe-input"
+          type="text"
+          placeholder="一句话结论（可空；空着卡片上就取正文第一段）"
+          spellcheck="false"
+          :value="modelValue.summary"
+          @input="set('summary', ($event.target as HTMLInputElement).value)"
+        />
+      </div>
     </template>
 
     <div class="dfe-row">

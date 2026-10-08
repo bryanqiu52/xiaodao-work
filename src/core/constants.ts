@@ -3,7 +3,7 @@
 // 这些值是从插件照抄的，不是重新设计的 —— 盘上几十条真数据用的就是这套取值，
 // 改一个字都会让老记录的分组散掉。
 
-import type { Domain, Owner, Priority, Status } from './types'
+import type { Domain, Owner, Priority, SortMode, Status } from './types'
 
 // ── 领域 ──────────────────────────────────────────────────────────────────
 
@@ -102,7 +102,7 @@ export const OWNER_HINTS: Record<string, string> = {
 export const STATUS_OPTIONS: readonly Status[] = ['paused', 'todo', 'progress', 'waiting', 'done']
 
 /**
- * 状态**筛选标签**的顺序：按事情的自然流程排（排队 → 进行中 → 等你回话 → 已暂停）。
+ * 状态**筛选标签**的顺序：按事情的自然流程排（排队 → 进行中 → 待回复 → 已暂停）。
  *
  * 为什么不复用 STATUS_OPTIONS：那个是给动作按钮排的（按点击频率），
  * 这个是给人读的（按流程）。两处口径不同，各留一份。
@@ -110,11 +110,19 @@ export const STATUS_OPTIONS: readonly Status[] = ['paused', 'todo', 'progress', 
  */
 export const STATUS_FILTER_OPTIONS: readonly Status[] = ['todo', 'progress', 'waiting', 'paused']
 
+/**
+ * 状态的中文名。**两边通用，不绑死在某一个视图上。**
+ *
+ * `waiting` 原来叫「等你回话」—— 那是站在小刀的活上说的（球在你脚下）。
+ * 可待办会在「我的」和「小刀的」之间转手，同一条到了「我的」里还写「等你回话」，
+ * 就成了"你等你自己的回话"，读不通。改成「待回复」：小刀那条是它在等你，
+ * 你这条是你在等别人 —— 主语交给流水里那句话去说。
+ */
 export const STATUS_LABELS: Record<string, string> = {
   todo: '排队',
   progress: '进行中',
   paused: '已暂停',
-  waiting: '等你回话',
+  waiting: '待回复',
   done: '已完成',
 }
 
@@ -123,11 +131,11 @@ export const STATUS_ACTION_LABELS: Record<string, string> = {
   paused: '暂停',
   todo: '排队',
   progress: '进行中',
-  waiting: '等你',
+  waiting: '待回复',
   done: '完成',
 }
 
-/** 小刀视图的排班顺序：进行中 → 等你回话 → 排队 → 已完成 → 已暂停垫底 */
+/** 小刀视图的排班顺序：进行中 → 待回复 → 排队 → 已完成 → 已暂停垫底 */
 export const STATUS_RANK: Record<string, number> = {
   progress: 0,
   waiting: 1,
@@ -137,6 +145,50 @@ export const STATUS_RANK: Record<string, number> = {
 }
 
 export const DEFAULT_STATUS: Status = 'todo'
+
+// ── 流水类型 ──────────────────────────────────────────────────────────────
+
+/**
+ * 流水里那条是什么动作。
+ *
+ * 评审也走流水（`recordReview` 会顺手记一条 `review`，留言也在里面），
+ * 所以脉络里**不再单独开一栏「评审」** —— 那等于把同一件事摆两遍。
+ * 挂个类型标就够：一眼能挑出哪条是评审、哪条是转手、哪条是自己记的。
+ *
+ * `comment` 是脉络里那个「记一笔」写出来的 —— 叫「手记」是为了跟
+ * 系统自己记的那些分开：这是你亲手写的。
+ */
+export const TRAIL_KIND_LABELS: Record<string, string> = {
+  create: '新建',
+  status: '状态',
+  edit: '编辑',
+  review: '评审',
+  transfer: '移交',
+  comment: '手记',
+}
+
+// ── 待办排序 ──────────────────────────────────────────────────────────────
+
+/**
+ * 默认按**重要程度**排 —— 那是"先做什么"的顺序，也是待办清单该有的样子。
+ * 「最近更新」是拿来**找刚有变动的那条**的，属于临时切过去看一眼。
+ */
+export const DEFAULT_SORT: SortMode = 'priority'
+
+/** 顶栏切换按钮上的短名：窗口只有 450 宽，全名放不下 */
+export const SORT_SHORT: Record<string, string> = { priority: '重要', recent: '最近' }
+
+export const SORT_LABELS: Record<string, string> = { priority: '重要程度', recent: '最近更新' }
+
+/**
+ * 认不出来的排序值一律回「重要程度」。
+ *
+ * 配置文件是能被手改坏的，读回来一个乱值不能让列表变成没有顺序的样子 ——
+ * 宁可回到最熟悉的那套，也比"看起来随机"强。
+ */
+export function normalizeSort(v: string): SortMode {
+  return v === 'recent' ? 'recent' : DEFAULT_SORT
+}
 
 // ── 其它 ──────────────────────────────────────────────────────────────────
 
