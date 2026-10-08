@@ -9,7 +9,7 @@ import {
   STATUS_RANK,
   DEFAULT_STATUS,
 } from './constants'
-import type { DueBucket, FilterValue, TodoItem } from './types'
+import type { FilterValue, TodoItem } from './types'
 
 /** 期限的日粒度（排序用）：没期限返回空串 */
 export function dueDay(item: TodoItem): string {
@@ -43,26 +43,13 @@ export function isDueToday(item: TodoItem): boolean {
   return day !== '' && day === todayLocal()
 }
 
-// ── 期限分段（「按期限看」那个开关）────────────────────────────────────────
-
-/**
- * 分段的先后：越是"该马上动"的越靠前。
- * **已过期和今天分成两段**，不合并成"今天到期"：提醒上它俩是一伙的，
- * 看列表时一个是欠账、一个是本来就该今天做的，混在一起反而看不出哪条更急。
- */
-export const DUE_BUCKET_ORDER: readonly DueBucket[] = ['overdue', 'today', 'week', 'later', 'none']
-
-export const DUE_BUCKET_LABELS: Record<DueBucket, string> = {
-  overdue: '已过期',
-  today: '今天',
-  week: '本周',
-  later: '以后',
-  none: '没期限',
-}
-
 /**
  * 本周最后一天（周日）的 `YYYY-MM-DD`。
  * **周一算一周之首** —— 跟国内日历一致，周日是这周的最后一天而不是第一天。
+ *
+ * 正主是「回顾」页（`core/review.ts` 用它切本周区间）。
+ * ⚠️ **它曾被摆在"按期限分组"那段里，但那个功能 2026-09-27 已经删了 ——
+ * 这个函数别跟着一起清掉**，删了回顾页的"本周"会当场报错（这次差点踩到）。
  */
 export function weekEndLocal(today: string = todayLocal()): string {
   const [y, m, d] = today.split('-').map(Number)
@@ -71,49 +58,6 @@ export function weekEndLocal(today: string = todayLocal()): string {
   // 再补到那一天就是本周日
   dt.setDate(dt.getDate() + (6 - ((dt.getDay() + 6) % 7)))
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
-}
-
-/** 这条待办落在哪一段。`weekEnd` 可传入避免逐条重算 */
-export function dueBucketOf(
-  item: TodoItem,
-  today: string = todayLocal(),
-  weekEnd: string = weekEndLocal(today),
-): DueBucket {
-  const day = dueDay(item)
-  if (day === '') return 'none'
-  if (day < today) return 'overdue'
-  if (day === today) return 'today'
-  if (day <= weekEnd) return 'week'
-  return 'later'
-}
-
-export interface DueGroup {
-  bucket: DueBucket
-  label: string
-  items: TodoItem[]
-}
-
-/**
- * 按期限分段。**只分区、不重排** —— 组内顺序就是传进来的顺序（原来那套权重优先），
- * 免得开个开关连既有手感都变了。空组不返回，调用方不用自己滤。
- */
-export function groupByDueBuckets(
-  items: readonly TodoItem[],
-  today: string = todayLocal(),
-): DueGroup[] {
-  const weekEnd = weekEndLocal(today)
-  const map = new Map<DueBucket, TodoItem[]>()
-  for (const item of items) {
-    const key = dueBucketOf(item, today, weekEnd)
-    const list = map.get(key)
-    if (list) list.push(item)
-    else map.set(key, [item])
-  }
-  return DUE_BUCKET_ORDER.filter((b) => (map.get(b)?.length ?? 0) > 0).map((b) => ({
-    bucket: b,
-    label: DUE_BUCKET_LABELS[b],
-    items: map.get(b) as TodoItem[],
-  }))
 }
 
 /**

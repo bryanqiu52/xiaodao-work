@@ -21,7 +21,6 @@ mod todo_io;
 mod tray;
 mod watcher;
 
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
@@ -99,7 +98,6 @@ pub fn run() {
             commands::data_root_set,
             commands::data_root_reset,
             commands::data_reset,
-            commands::todo_file_path,
             commands::open_path,
             commands::pick_directory,
             commands::pick_file,
@@ -137,6 +135,13 @@ pub fn run() {
             let launched_by_autostart = std::env::args().any(|a| a == "--autostart");
             paths::ensure_dirs()?;
 
+            // 一次性迁移：老配置里"待办文件另指他处"的，把那份复制进数据根。
+            // **必须在下面所有读待办的动作之前** —— 不然备份、监听、界面读到的都是空文件。
+            // 旧位置那份**不动**（观察两三天、确认 AI 都跟过来了再删）。
+            if let Some(msg) = config::migrate_todo_file() {
+                log::info!("[数据] {}", msg);
+            }
+
             // 壁纸是本地图片，WebView 得走 asset 协议才读得到。
             // 静态 scope 只能写死路径，而数据根是运行时才定的（便携模式下还会变），
             // 所以在这里按实际路径补一次授权 —— 少了它壁纸就是一块空白，还不报错。
@@ -167,14 +172,12 @@ pub fn run() {
             // 顺序有讲究：先按盘上原文备份，之后前端加载时可能就地修正完成态并写回，
             // 备份必须落在修正之前，否则回滚凭据就不是"修改前"的样子。
             if cfg.backup_enabled {
-                if let Err(e) =
-                    backup::backup_daily(&PathBuf::from(&cfg.todo_file), cfg.backup_keep)
-                {
+                if let Err(e) = backup::backup_daily(&paths::todo_file(), cfg.backup_keep) {
                     log::warn!("[备份] 每日备份失败: {}", e);
                 }
             }
 
-            watcher::start(&handle, PathBuf::from(&cfg.todo_file));
+            watcher::start(&handle, paths::todo_file());
             // 记账文件也监听：AI 通过 skill 记一笔之后，界面要能自己看到（不然等于白写）
             watcher::start_money(&handle);
             // 到期提醒的节拍器：每半小时喊一声，该提醒谁由前端判定（见 reminder.rs 的注释）

@@ -1,14 +1,16 @@
 <script setup lang="ts">
-// 待办：文件路径、默认视图、显示已删除、提醒。
+// 待办：默认视图、显示已删除、分类、提醒。
 //
 // 待办文件**是共用的真相源**：本应用和 AI 都读写它。
 // 这点必须在界面上说清楚 —— 用户以为它只是这个应用的私有文件时，
 // 就会疑惑"我改了它，AI 那边知道吗"。
+//
+// 「文件在哪」**不在这里**：2026-09-30 起它固定是 `数据根\待办.json`，
+// 归「设置 → 数据 → 存储」管（换位置、告诉 AI 都在那）。
 import { computed, inject, ref } from 'vue'
 import { Trash2 } from 'lucide-vue-next'
-import { tauriApi } from '../../api/tauri'
 import { configStore, saveConfig } from '../../stores/config'
-import { commit, loadTodos, todoStore } from '../../stores/todo'
+import { commit, todoStore } from '../../stores/todo'
 import { DOMAIN_OPTIONS } from '../../core/constants'
 import { useDomains } from '../../composables/useDomains'
 import { checkRemindNow, lastNotifyError } from '../../composables/useReminder'
@@ -127,113 +129,6 @@ async function resetDomains(): Promise<void> {
   showToast('已恢复默认分类')
 }
 
-/**
- * 往剪贴板写文本。两层兜底。
- *
- * 为什么不能只用 `navigator.clipboard`：它要求 **secure context**，
- * 而 Tauri 的 webview 在某些配置下不算 —— 那时这个 API 直接是 undefined。
- * 静默失败的话，用户点了"复制"却什么都没拿到，还以为已经复制好了。
- * 老式的 `execCommand('copy')` 虽然标了废弃，但各大内核都还认，正好当兜底。
- */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard !== undefined && window.isSecureContext) {
-      await navigator.clipboard.writeText(text)
-      return true
-    }
-  } catch {
-    /* 掉到下面的兜底 */
-  }
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = text
-    ta.setAttribute('readonly', '')
-    ta.style.position = 'fixed'
-    ta.style.top = '-1000px'
-    document.body.appendChild(ta)
-    ta.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(ta)
-    return ok
-  } catch {
-    return false
-  }
-}
-
-/**
- * 生成一段「数据位置说明」，复制走。
- *
- * **用途**：AI 那边的 skill / agent 记着旧的待办路径（写在它的配置或记忆里）。
- * 你在界面里换了位置之后它并不知道，下次可能就去读写一个不存在的文件。
- * 把这段贴给它，它就知道该更新什么了。
- *
- * 所以这里输出的**不是清单内容**，而是"位置在哪、从哪变过来的"这件事本身 ——
- * 清单内容它自己会读，不需要我们抄一遍。
- *
- * 措辞上刻意做了两件事：
- *   - **把新旧都列出来**（有旧值时才说"从…变为…"），否则它没法判断是不是自己记的那份；
- *   - **明确说"格式没变"**，免得它以为数据格式也改了，去做什么兼容处理。
- */
-async function copyLocationNotice(): Promise<void> {
-  const f = configStore.cfg.todo_file
-  const root = configStore.dataRoot
-  const prevF = configStore.cfg.notified_todo_file
-  const prevRoot = configStore.cfg.notified_data_root
-
-  const lines: string[] = [
-    '【小刀工作台 · 数据位置说明】',
-    '',
-    '如果你（AI skill / agent）的记录里存了小刀待办的文件位置，请核对并按下面这份更新。',
-    '',
-    '待办文件：',
-  ]
-  if (prevF.length > 0 && prevF !== f) {
-    lines.push(`  原：${prevF}`, `  新：${f}`, '', '（路径变了）')
-  } else {
-    lines.push(`  ${f}`)
-  }
-  lines.push('', '数据目录：')
-  if (prevRoot.length > 0 && prevRoot !== root) {
-    lines.push(`  原：${prevRoot}`, `  新：${root}`)
-  } else {
-    lines.push(`  ${root}`)
-  }
-  lines.push(
-    '  （配置、备份、日志、壁纸都在这个目录下）',
-    '',
-    '待办文件的**数据格式没有变化**，只是位置 —— 不需要做格式兼容处理。',
-    `生成时间：${new Date().toLocaleString('zh-CN', { hour12: false })}`,
-  )
-
-  const ok = await copyText(lines.join('\n'))
-  if (!ok) {
-    showToast('复制失败了，可能是系统剪贴板被占用')
-    return
-  }
-  // 记下"这次告诉出去的是哪份路径"，下次改动才能说出"从哪变到哪"
-  await saveConfig({ notified_todo_file: f, notified_data_root: root })
-  showToast('已复制位置说明，贴给 AI / skill 就行')
-}
-
-async function pickTodoFile(): Promise<void> {
-  const picked = await tauriApi.pickFile(['json'])
-  if (!picked) return
-  await saveConfig({ todo_file: picked })
-  await loadTodos()
-  // 位置变了，AI / skill 那边并不知道 —— 主动提一句，
-  // 别指望用户自己会发现"哦这里有个复制按钮"
-  showToast('已切换待办文件。AI / skill 那边记着旧路径的话，用「复制位置说明」告诉它')
-}
-
-async function openTodoDir(): Promise<void> {
-  const idx = Math.max(
-    configStore.cfg.todo_file.lastIndexOf('\\'),
-    configStore.cfg.todo_file.lastIndexOf('/'),
-  )
-  const dir = idx > 0 ? configStore.cfg.todo_file.slice(0, idx) : configStore.cfg.todo_file
-  await tauriApi.openPath(dir, 'folder')
-}
-
 async function setView(v: string): Promise<void> {
   await saveConfig({ default_view: v })
 }
@@ -268,31 +163,6 @@ async function checkNow(): Promise<void> {
 </script>
 
 <template>
-  <!-- 数据文件 -->
-  <section id="sv-sec-file" class="sv-sec">
-    <h3 class="sv-sec-title">数据文件</h3>
-
-    <div class="setting-row">
-      <div class="setting-info">
-        <span class="setting-name">待办文件</span>
-        <span class="setting-desc">
-          这份文件<b>本应用和 AI 共用</b>：AI 直接读写它。
-          在这里的改动 AI 那边看得到；反过来 AI 改了，这里也会立刻重载
-        </span>
-      </div>
-      <div class="sv-path">
-        <span class="sv-path-text xd-select">{{ configStore.cfg.todo_file }}</span>
-        <div class="sv-path-actions">
-          <button type="button" class="sv-btn" @click="pickTodoFile">浏览…</button>
-          <button type="button" class="sv-btn" @click="openTodoDir">打开所在目录</button>
-          <button type="button" class="sv-btn" @click="copyLocationNotice">复制位置说明</button>
-        </div>
-      </div>
-      <p class="setting-desc">换了位置要告诉 AI：点「复制位置说明」贴给它。</p>
-    </div>
-
-  </section>
-
   <!-- 视图 -->
   <section id="sv-sec-view" class="sv-sec">
     <h3 class="sv-sec-title">视图</h3>

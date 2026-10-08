@@ -78,13 +78,3 @@ export interface TodoFile {
 
 /** 筛选值：null = 全部 */
 export type FilterValue = string | null
-
-/**
- * 期限分段（「按期限看」那个开关用）：
- * 已过期 / 今天 / 本周 / 以后 / 没期限。
- *
- * 「已过期」和「今天」**分开**而不是合并成"今天到期"：这两类在提醒上是一伙的
- * （都会触发通知、都能「稍后再说」），但看列表时一个是要赶紧补的欠账、
- * 一个是今天本来就该做的，混在一起反而看不出哪条更急。
- */
-export type DueBucket = 'overdue' | 'today' | 'week' | 'later' | 'none'

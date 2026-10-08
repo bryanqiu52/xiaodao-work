@@ -1,8 +1,11 @@
 <script setup lang="ts">
-// 数据：备份、恢复、清空、改数据目录。
+// 数据：备份、恢复、清空、改数据目录，以及"把位置告诉 AI"。
 //
-// 备份目录在数据根下（`%APPDATA%\小刀工作台\待办备份\`），**不跟待办文件放一起** ——
-// 备份是本应用自己的东西，不该散在用户的资料目录里。
+// 备份目录在数据根下（`%APPDATA%\小刀工作台\待办备份\`）—— 备份是本应用自己的东西，
+// 不该散在别处。
+//
+// **所有数据都在数据根里**（2026-09-30 起待办文件也进来了），所以这一页是唯一
+// 决定"东西放哪"的地方：换目录、复制位置说明都在这，待办页不再管路径。
 //
 // 「改数据路径」的实现要点：那条路径**记在固定位置**（默认目录下的 `location.txt`），
 // 不能存在数据根里 —— 否则成了自举循环（得先读数据根，才知道数据根在哪）。
@@ -47,9 +50,8 @@ async function changeDataRoot(): Promise<void> {
     title: '把数据目录改到新位置？',
     note: picked,
     facts: [
-      '配置、壁纸、备份、记账、专注记录会复制过去',
+      '待办清单、配置、壁纸、备份、记账、专注记录会复制过去',
       '原目录保留、不删（后悔了还能翻回去）',
-      '待办文件不在数据目录里，不受影响',
       '需要重启才生效',
     ],
     confirmText: '更改',
@@ -95,6 +97,92 @@ async function resetDataRoot(): Promise<void> {
   await refreshRoot()
   logToBackend('info', r)
   showToast(r)
+}
+
+/**
+ * 往剪贴板写文本。两层兜底。
+ *
+ * 为什么不能只用 `navigator.clipboard`：它要求 **secure context**，
+ * 而 Tauri 的 webview 在某些配置下不算 —— 那时这个 API 直接是 undefined。
+ * 静默失败的话，用户点了"复制"却什么都没拿到，还以为已经复制好了。
+ * 老式的 `execCommand('copy')` 虽然标了废弃，但各大内核都还认，正好当兜底。
+ *
+ * （这个函数是 2026-09-30 从待办页跟着「复制位置说明」一起搬过来的）
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard !== undefined && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+  } catch {
+    /* 掉到下面的兜底 */
+  }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.top = '-1000px'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 复制一段「数据位置说明」。
+ *
+ * **这段文字是贴给 AI / 小刀 skill 的指令**：告诉它把记着的待办路径改成新的。
+ * 所以只给事实（原是什么、新是什么），不写"如果你记着旧路径""请核对"这类假设句 ——
+ * 核实旧记录是它自己的事，我们只负责把新值说准。
+ *
+ * **待办文件的完整路径必须单独列出来**：AI 脚本里写死的是 `...\待办.json`，
+ * 只报数据目录的话它还得自己拼，容易拼错。
+ * 旧路径不用另存一份 —— 拿旧数据根拼上 `\待办.json` 就是了。
+ */
+async function copyLocationNotice(): Promise<void> {
+  const root = configStore.dataRoot
+  const todo = `${root}\\待办.json`
+  const prevRoot = configStore.cfg.notified_data_root
+  const changed = prevRoot.length > 0 && prevRoot !== root
+
+  const lines: string[] = [
+    '【小刀工作台 · 数据位置说明】',
+    '',
+    '请把记录里的小刀待办文件路径更新为下列新路径。',
+    '',
+    '待办文件：',
+  ]
+  if (changed) {
+    lines.push(`  原：${prevRoot}\\待办.json`, `  新：${todo}`)
+  } else {
+    lines.push(`  ${todo}`)
+  }
+  lines.push('', '数据目录：')
+  if (changed) {
+    lines.push(`  原：${prevRoot}`, `  新：${root}`)
+  } else {
+    lines.push(`  ${root}`)
+  }
+  lines.push(
+    '',
+    '待办文件的数据格式没有变化。',
+    `生成时间：${new Date().toLocaleString('zh-CN', { hour12: false })}`,
+  )
+
+  const ok = await copyText(lines.join('\n'))
+  if (!ok) {
+    showToast('复制失败了，可能是系统剪贴板被占用')
+    return
+  }
+  // 记下"这次告诉出去的是哪个目录"，下次改动才能说出"从哪变到哪"
+  await saveConfig({ notified_data_root: root })
+  showToast('已复制位置说明，贴给 AI / skill 就行')
 }
 
 /**
@@ -243,7 +331,7 @@ async function clearAll(): Promise<void> {
       '待办清单（一条不剩，AI 那边读到的也是空的）',
       '记账流水',
       '专注记录（番茄钟的那些记录）',
-      '所有设置（待办文件位置、主题、快捷键、提醒偏好）',
+      '所有设置（主题、快捷键、提醒偏好、领域分类）',
       '壁纸',
     ],
     warning:
@@ -281,7 +369,7 @@ async function clearAll(): Promise<void> {
       <div class="setting-info">
         <span class="setting-name">数据路径</span>
         <span class="setting-desc">
-          本应用的配置、日志、备份、壁纸都在这里。待办文件单独指定，见「待办 → 数据文件」
+          待办清单、配置、日志、备份、壁纸、记账、专注记录**全部**都在这个目录里
         </span>
         <span v-if="portable" class="setting-soon">
           便携模式：数据跟着 exe 走，由 exe 旁边的 portable 文件决定，这里改不了
@@ -317,6 +405,17 @@ async function clearAll(): Promise<void> {
           </button>
         </div>
       </div>
+    </div>
+
+    <!-- 换了目录要告诉 AI：AI / skill 那边记着旧路径，它自己不会知道 -->
+    <div class="setting-row">
+      <div class="setting-info">
+        <span class="setting-name">复制位置说明</span>
+        <span class="setting-desc">
+          把当前位置（以及从哪变过来的）复制成一段话，贴给 AI / skill，让它把记着的待办路径更新掉
+        </span>
+      </div>
+      <button type="button" class="sv-btn" @click="copyLocationNotice">复制</button>
     </div>
 
     <!-- 「打开数据目录」这行删了（2026-09-25）：上面「数据路径」那行本来就带「打开」，

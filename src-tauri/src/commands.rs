@@ -3,8 +3,6 @@
 //! 约定：**命令里不做业务判断**，只做"拿配置 → 调对应模块 → 回结果"。
 //! 待办的语义（完成态自洽、软删除、流水、审批）全在前端 `src/core/`。
 
-use std::path::PathBuf;
-
 use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_plugin_dialog::DialogExt;
 
@@ -21,17 +19,17 @@ use crate::tray;
 // ── 待办文件 ──────────────────────────────────────────────────────────────
 
 /// 读待办文件原文（前端自己 JSON.parse）
+///
+/// 路径**不看配置**：待办文件固定是 `数据根\待办.json`（见 `paths::todo_file`）
 #[tauri::command]
 pub fn todo_read() -> Result<TodoSnapshot, String> {
-    let cfg = config::load();
-    todo_io::read_todo(&PathBuf::from(&cfg.todo_file))
+    todo_io::read_todo(&paths::todo_file())
 }
 
 /// 写待办文件：必须带上这次改动所基于的指纹，盘上不是这一份就拒绝
 #[tauri::command]
 pub fn todo_write(text: String, base_fingerprint: String) -> Result<WriteResult, String> {
-    let cfg = config::load();
-    todo_io::write_todo(&PathBuf::from(&cfg.todo_file), &text, &base_fingerprint)
+    todo_io::write_todo(&paths::todo_file(), &text, &base_fingerprint)
 }
 
 // ── 配置 ──────────────────────────────────────────────────────────────────
@@ -65,7 +63,7 @@ pub fn config_set(mut cfg: AppConfig) -> Result<AppConfig, String> {
 #[tauri::command]
 pub fn backup_now() -> Result<String, String> {
     let cfg = config::load();
-    backup::backup_now(&PathBuf::from(&cfg.todo_file), cfg.backup_keep)
+    backup::backup_now(&paths::todo_file(), cfg.backup_keep)
 }
 
 #[tauri::command]
@@ -128,7 +126,7 @@ pub fn data_reset() -> Result<String, String> {
     let mut done: Vec<String> = Vec::new();
 
     // ① 先备份（得有待办文件才谈得上备份）
-    let todo = PathBuf::from(&cfg.todo_file);
+    let todo = paths::todo_file();
     if todo.is_file() {
         backup::backup_now(&todo, cfg.backup_keep).map_err(|e| {
             format!("想先备份一份再清空，但备份失败了（{}）。没有备份就不清了", e)
@@ -178,11 +176,6 @@ pub fn data_reset() -> Result<String, String> {
         "已清空：{}。清空前自动备份了一份，后悔了可以在上面「从备份恢复」里翻回来。",
         done.join("、")
     ))
-}
-
-#[tauri::command]
-pub fn todo_file_path() -> String {
-    config::load().todo_file
 }
 
 /// 打开产出 / 目录。返回值见 `open.rs` 的说明
@@ -554,7 +547,7 @@ pub fn backup_restore(
     let cfg = config::load();
     backup::restore(
         &path,
-        std::path::Path::new(&cfg.todo_file),
+        &paths::todo_file(),
         cfg.backup_keep,
         with_config,
     )

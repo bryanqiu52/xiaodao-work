@@ -301,11 +301,6 @@ export const tauriApi = {
     }
   },
 
-  async todoFilePath(): Promise<string> {
-    if (!isTauri()) return defaultConfig().todo_file
-    return invoke<string>('todo_file_path')
-  },
-
   /**
    * 打开产出文件。
    * `file` = 交查看器 / 系统默认程序打开；`folder` = 打开所在目录并选中。

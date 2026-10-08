@@ -60,16 +60,15 @@ export interface AppConfig {
   edge_hide: boolean
   window: WindowState
 
-  /** 待办文件绝对路径（与 AI 共用同一份） */
-  todo_file: string
   /**
-   * 上一次「复制变更说明」时用过的待办路径。
+   * 上一次「复制位置说明」时用过的**数据根**。
    *
    * 留着它是为了**能说出"从哪变到哪"** —— 只报当前值的话，AI 那边没法判断
    * 是不是就是它记着的那份。空串 = 从没告知过（那就只说当前是什么）。
+   *
+   * 待办文件的路径**不单独存**：它 = `数据根\待办.json`，
+   * 旧路径拿这份旧数据根现推就行，不用再养一份容易对不上的副本。
    */
-  notified_todo_file: string
-  /** 同上，数据目录那一份 */
   notified_data_root: string
   /** 库根：打开产出的根目录 */
   library_root: string
@@ -168,8 +167,6 @@ export function defaultConfig(): AppConfig {
     // 下面这几项**运行时以后端 config.json 为准**（每次启动它都会带完整配置回来），
     // 这里留空是故意的：以前写的是作者本机的绝对路径，哪条路径漏了兜底，
     // 界面上就会冒出一个别人机器上根本不存在的盘符
-    todo_file: '',
-    notified_todo_file: '',
     notified_data_root: '',
     library_root: '',
     default_view: 'user',

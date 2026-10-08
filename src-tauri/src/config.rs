@@ -67,15 +67,6 @@ fn default_shortcut() -> String {
 fn default_close_behavior() -> String {
     "hide".to_string()
 }
-/// 默认待办文件：**自己数据根下的 `待办.json`**（便携版就是 `exe\data\待办.json`）。
-///
-/// 作者本机那份已经在 `config.json` 里存着，不受这个默认值影响。
-fn default_todo_file() -> String {
-    crate::paths::data_root()
-        .join("待办.json")
-        .to_string_lossy()
-        .into_owned()
-}
 /// 默认库根 = 数据根。它既是 `files` 里相对路径的基准，也是打开产出的白名单第一项
 fn default_library_root() -> String {
     crate::paths::data_root().to_string_lossy().into_owned()
@@ -203,13 +194,10 @@ pub struct AppConfig {
     pub window: WindowState,
 
     // ---- 待办 ----
-    /// 待办文件绝对路径（与 AI 共用同一份）
-    #[serde(default = "default_todo_file")]
-    pub todo_file: String,
-    /// 上次「复制变更说明」时用过的待办路径（为了能说出"从哪变到哪"）
-    #[serde(default)]
-    pub notified_todo_file: String,
-    /// 同上，数据目录那一份
+    /// 上次「复制位置说明」时用过的数据根（为了能说出"从哪变到哪"）。
+    ///
+    /// 待办文件的路径**不在这里存**了：它 = `数据根\待办.json`，
+    /// 旧路径用这份旧数据根现推就行，不用再养一份容易对不上的副本。
     #[serde(default)]
     pub notified_data_root: String,
     /// 库根：打开产出的根目录
@@ -328,8 +316,6 @@ impl Default for AppConfig {
             always_on_top: false,
             edge_hide: default_true(),
             window: WindowState::default(),
-            todo_file: default_todo_file(),
-            notified_todo_file: String::new(),
             notified_data_root: String::new(),
             library_root: default_library_root(),
             default_view: default_view(),
@@ -391,4 +377,55 @@ pub fn update<F: FnOnce(&mut AppConfig)>(f: F) -> Result<AppConfig, String> {
     f(&mut cfg);
     save(&cfg)?;
     Ok(cfg)
+}
+
+/// 一次性迁移：把老配置里指向别处的待办文件，搬进数据根。
+///
+/// 整合之后待办文件固定是 `数据根\待办.json`。可老用户的 `config.json` 里
+/// 还写着别处的路径（旧字段 `todo_file`）—— 那个字段现在已经不解析了，
+/// 直接丢掉它，界面上就是一张空清单（文件还躺在旧地方），那是数据事故。
+///
+/// 所以启动时做一次：**复制**过来（旧的一律不动，符合"观察两三天再删"的约定），
+/// 再整份重新落盘，让旧字段彻底消失。
+///
+/// 返回一句给用户看的话；`None` = 没什么可迁的（新装 / 已经迁过 / 旧文件已经不在了）。
+pub fn migrate_todo_file() -> Option<String> {
+    let target = paths::todo_file();
+
+    // 读盘上原文：那两个字段已经不在 `AppConfig` 里了，只能从 JSON 里直接取
+    let raw: serde_json::Value = fs::read_text(&paths::config_file())
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())?;
+    let old = raw.get("todo_file").and_then(|v| v.as_str())?.trim();
+    if old.is_empty() {
+        return None;
+    }
+
+    let src = std::path::PathBuf::from(old);
+    if src == target || !src.is_file() {
+        return None;
+    }
+
+    if target.exists() {
+        // 数据根里已经有清单（迁过 / 本来就在）：**不覆盖** ——
+        // 免得拿旧位置那份旧内容，盖掉用户刚在新位置写的
+        log::info!(
+            "[迁移] 数据目录里已有待办文件，不覆盖（旧位置那份仍留在 {}）",
+            src.display()
+        );
+    } else if let Err(e) = std::fs::copy(&src, &target) {
+        log::warn!(
+            "[迁移] 待办文件复制失败 {} → {}: {}",
+            src.display(),
+            target.display(),
+            e
+        );
+        return None;
+    } else {
+        log::info!("[迁移] 待办文件已搬进数据目录: {}", target.display());
+    }
+
+    // 旧字段作废：整份重新落盘一次，`todo_file` / `notified_todo_file` 就不再出现
+    let _ = update(|_| {});
+    Some(format!("待办清单已搬到数据目录：{}", target.display()))
 }

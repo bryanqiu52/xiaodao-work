@@ -74,8 +74,7 @@ const SECTIONS = [
   { id: 'font', label: '字体' },
   { id: 'accent', label: '强调色' },
   { id: 'background', label: '背景' },
-  // 待办
-  { id: 'file', label: '数据文件' },
+  // 待办（「数据文件」那节 2026-09-30 删了：待办位置归「数据 → 存储」管）
   { id: 'view', label: '视图' },
   { id: 'domains', label: '分类' },
   { id: 'remind', label: '提醒' },
@@ -118,7 +117,6 @@ const SECTION_GROUP: Record<SectionId, GroupId> = {
   font: 'appearance',
   background: 'appearance',
   view: 'todo',
-  file: 'todo',
   domains: 'todo',
   remind: 'todo',
   focus: 'tools',

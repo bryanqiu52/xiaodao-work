@@ -7,7 +7,7 @@
 //   - 状态 chip 的数字 = 归属 + 领域 + 权重（不含状态自身）。
 // 所以选中一档之后，别的选项数字不会缩水，方便直接改选。
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
-import { CalendarClock, Search, SlidersHorizontal, Undo2, X } from 'lucide-vue-next'
+import { Search, SlidersHorizontal, Undo2, X } from 'lucide-vue-next'
 import OwnerTabs from './OwnerTabs.vue'
 import TodoRow from './TodoRow.vue'
 import ReviewRow from './ReviewRow.vue'
@@ -29,7 +29,6 @@ import {
   completedItems,
   countBy,
   countPendingOwned,
-  groupByDueBuckets,
   matchesDomain,
   matchesKeyword,
   matchesPriority,
@@ -56,12 +55,6 @@ const status = ref<string | null>(null)
  * 注意它**不吃**搜索 / 领域 / 权重之外的东西：这几个条件照样生效（见 completed）。
  */
 const showDone = ref(false)
-/**
- * 「按期限看」开关。**默认关着** —— 现有那套（权重优先）是跑熟的手感，
- * 分组只该是"想按期限收拾一遍时"临时拧过去的，不该一上来就改变所有人的默认视图。
- * 纯视图状态，不落盘。
- */
-const dueMode = ref(false)
 const sheetOpen = ref(false)
 const editingId = ref<string | null>(null)
 const transferringId = ref<string | null>(null)
@@ -104,42 +97,6 @@ const statusPool = computed(() => weightPool.value.filter((i) => matchesPriority
 const visible = computed(() => statusPool.value.filter((i) => matchesStatus(i, status.value)))
 
 // ── 期限分组 ──────────────────────────────────────────────────────────────
-
-/** 按期限切成「已过期 / 今天 / 本周 / 以后 / 没期限」。组内顺序仍是原来那套 */
-const dueGroups = computed(() => groupByDueBuckets(visible.value))
-
-/**
- * 渲染用的扁平行列表。
- *
- * **为什么把分组标题挂在"该组第一行"上，而不是分两层循环**：分两层就得把
- * 那一大段行内模板（TodoRow / ReviewRow / TransferForm 三选一 + 转移表单）
- * 抄第二遍，两处迟早对不上。扁平化之后模板只写一遍，标题跟着它的第一行走。
- */
-interface RenderRow {
-  item: TodoItem
-  /** 分组标题，只挂每组第一行；不分组时是 null */
-  header: string | null
-  /** 分组的用途色标记（见样式里的 .due-*） */
-  headerTone: string
-}
-
-const renderRows = computed<RenderRow[]>(() => {
-  const out: RenderRow[] = []
-  if (!dueMode.value) {
-    for (const it of visible.value) out.push({ item: it, header: null, headerTone: '' })
-    return out
-  }
-  for (const g of dueGroups.value) {
-    g.items.forEach((it, idx) => {
-      out.push({
-        item: it,
-        header: idx === 0 ? `${g.label} · ${g.items.length} 条` : null,
-        headerTone: g.bucket,
-      })
-    })
-  }
-  return out
-})
 
 // ── 撤销 ──────────────────────────────────────────────────────────────────
 
@@ -435,25 +392,6 @@ onBeforeUnmount(() => {
           <!-- 搜索时那几个条件不生效，数字就没意义了 —— 别挂着一个会误导人的角标 -->
           <span v-if="filterCount && !searching" class="pane-filter-n">{{ filterCount }}</span>
         </button>
-        <!-- 按期限分组：图标按钮，窄窗口下不跟文字抢地方。
-             搜索态与已完成态不分组（那两份清单的语义不同，硬分组只会更乱） -->
-        <button
-          type="button"
-          class="pane-filter-btn pane-icon-btn"
-          :class="{ on: dueMode }"
-          :aria-pressed="dueMode"
-          :disabled="searching || showDone"
-          :title="
-            searching || showDone
-              ? '搜索 / 已完成清单不分组'
-              : dueMode
-                ? '按期限分组中（点一下回到权重优先）'
-                : '按期限分组：已过期 / 今天 / 本周 / 以后 / 没期限'
-          "
-          @click="dueMode = !dueMode"
-        >
-          <CalendarClock :size="13" :stroke-width="2" />
-        </button>
         <!-- 「已完成」勾选：原插件就摆在筛选右边。勾上 = **只看已完成**，
              取消 = 回到未完成清单（两个是互斥的两份清单，不是叠加）。 -->
         <button
@@ -611,12 +549,7 @@ onBeforeUnmount(() => {
       </div>
 
       <template v-else>
-        <!-- 解构出 item 只是为了让我下面那段行内模板一行都不用改；
-             分组标题跟着每组第一行走（见 renderRows 的说明） -->
-        <div v-for="{ item: it, header, headerTone } in renderRows" :key="it.id" class="pane-item">
-          <p v-if="header" class="pane-group-tip pane-due-tip" :class="`due-${headerTone}`">
-            {{ header }}
-          </p>
+        <div v-for="it in visible" :key="it.id" class="pane-item">
           <EditRow
             v-if="editingId === it.id"
             :item="it"
@@ -839,28 +772,6 @@ onBeforeUnmount(() => {
   color: var(--xd-accent);
 }
 
-/* 图标按钮（按期限分组）：只有图标，左右内边距收到最小 ——
-   360px 窗口 + 200% 字号时，这一行里每一像素都金贵 */
-.pane-icon-btn {
-  padding: 0 8px;
-}
-
-.pane-filter-btn.on {
-  border-color: var(--xd-accent);
-  background: var(--xd-accent-soft);
-  color: var(--xd-accent);
-}
-
-.pane-filter-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.pane-filter-btn:disabled:hover {
-  border-color: var(--xd-border);
-  color: var(--xd-text-sub);
-}
-
 .pane-filter-n {
   padding: 0 5px;
   border-radius: 999px;
@@ -974,36 +885,6 @@ onBeforeUnmount(() => {
   margin: 0 0 2px;
   font-size: calc(12.6px * var(--xd-font-scale));
   color: var(--xd-text-dim);
-}
-
-/* 期限分组的标题：跟搜索结果的组标题同一档字号，靠左边一条色标分轻重 ——
-   「已过期」一眼就得是红的，别让用户逐字去读 */
-.pane-due-tip {
-  margin: 7px 0 1px;
-  padding-left: 7px;
-  border-left: 2px solid var(--xd-border);
-}
-
-.pane-due-tip.due-overdue {
-  border-left-color: var(--xd-red);
-  color: var(--xd-red);
-}
-
-.pane-due-tip.due-today {
-  border-left-color: var(--xd-accent);
-  color: var(--xd-accent);
-}
-
-.pane-due-tip.due-week {
-  border-left-color: var(--xd-w-mid);
-}
-
-.pane-due-tip.due-later {
-  border-left-color: var(--xd-w-low);
-}
-
-.pane-due-tip.due-none {
-  border-left-color: var(--xd-border-soft);
 }
 
 .pane-empty {
