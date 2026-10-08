@@ -12,7 +12,7 @@ import StatusBar from './StatusBar.vue'
 import DetailText from './DetailText.vue'
 import RemoveConfirm from './RemoveConfirm.vue'
 import { briefOf, artifactPaths } from '../core/brief'
-import { DEFAULT_STATUS, normalizeSort, PRIORITY_LABELS, STATUS_LABELS } from '../core/constants'
+import { normalizeSort, PRIORITY_LABELS, STATUS_LABELS } from '../core/constants'
 import { useDomains } from '../composables/useDomains'
 import { configStore } from '../stores/config'
 
@@ -84,14 +84,9 @@ const recentAt = computed(() =>
       <span v-if="props.showOwner" class="owner-tag">
         {{ props.item.owner === 'agent' ? '小刀的' : '我的' }}
       </span>
-      <!-- 小刀视图常驻；「我的」这条只在**不是排队**时才冒出来。
-           待办会在两边转手（转回给你时状态原样保留），一条「已暂停」的活回到你的列表
-           却看不出它停着，那才是问题。常态的排队不标，免得满屏都是同一个词 -->
-      <span
-        v-if="props.agentView || props.item.status !== DEFAULT_STATUS"
-        class="badge"
-        :class="`st-${props.item.status}`"
-      >
+      <!-- 只在小刀视图留着：状态已经由下面那一排 chip 的选中态表达了，
+           两边都挂徽章等于同一件事说两遍 -->
+      <span v-if="props.agentView" class="badge" :class="`st-${props.item.status}`">
         {{ STATUS_LABELS[props.item.status] }}
       </span>
       <span v-if="props.item.deletedAt" class="deleted-tag">已删除</span>
@@ -166,7 +161,7 @@ const recentAt = computed(() =>
       @result="emit('result', $event)"
     />
 
-    <div v-if="props.agentView" class="card-status">
+    <div class="card-status">
       <StatusBar :status="props.item.status" @change="emit('status', $event)" />
     </div>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 状态 chip：小刀视图里点它直接改状态（走 applyPatch 那个唯一入口，会自动留流水）。
+// 状态 chip：点它直接改状态（走 applyPatch 那个唯一入口，会自动留流水）。
+// 两个视图都有 —— 状态是通用的，「待回复」可以是小刀在等你，也可以是你在等客户回话。
 // 顺序按点击频率排：暂停 / 排队最常点，顶在最前。
 import { STATUS_ACTION_LABELS, STATUS_OPTIONS } from '../core/constants'
 import type { Status } from '../core/types'
