@@ -44,49 +44,6 @@ const CHANGELOG: { version: string; date: string; items: string[] }[] = [
       '内置壁纸和 md 查看器随安装包一起提供（查看器是第三方开源工具，许可原文随包附带）',
     ],
   },
-  {
-    version: '1.1.1',
-    date: '2026-09-26',
-    items: [
-      '所有确认框换成应用内的浮层样式，不再是系统那个白底小框',
-      '修掉确认框里「**所有数据**」的星号被当文字显示出来的问题',
-      '更新日志默认只展开最新一版，往前的折成一行，点一下再展开',
-    ],
-  },
-  {
-    version: '1.1.0',
-    date: '2026-09-26',
-    items: [
-      '待办支持撤销：点「撤销」或按 Ctrl+Z 退一步（完成、移出、改状态、改字段都能退）',
-      '编辑待办时能挂产出文件 / 目录、关联其它待办（以前只有 AI 能写这两项）',
-      '列表可按期限分组看：已过期 / 今天 / 本周 / 以后 / 没期限',
-      '新增「回顾」页：本周或本月的完成情况、平均耗时、专注时长、按领域分布',
-      '番茄钟可挂到某条待办上，跑完自动记一笔，钟上显示这条累计几个番茄',
-      '记账可按项目 / 分类 / 备注搜索；汇总卡下方显示与上月的收支差额',
-      '备份里多了专注记录；改数据目录时会连记账和专注记录一起搬（以前会漏）',
-    ],
-  },
-  {
-    version: '1.0.2',
-    date: '2026-09-25',
-    items: [
-      '强调色按浅色 / 深色分开保存，两个主题各记一支',
-      '亮色主题下的分区标题、设置说明、搜索结果来源再加深一档',
-      '关于页补上更新、更新日志、致谢、隐私说明',
-      '删掉关于页里和「数据 → 存储」重复的「数据放在哪」',
-    ],
-  },
-  {
-    version: '1.0.1',
-    date: '2026-09-25',
-    items: [
-      '顶部赞赏图标换成点赞，不再和侧栏「记账」用同一个',
-      '亮色主题下侧栏图标和设置说明不再发灰',
-      '修好「官网」点不开；网址不再限制域名，只挡危险协议',
-      '「移除」壁纸只删当前这张，不再清空整个壁纸目录',
-      '设置文案按「标题说是什么、描述说会怎样」重排；删掉重复的「打开数据目录」',
-    ],
-  },
 ]
 
 /** 致谢：站在谁肩膀上。带链接的点了用系统浏览器打开 */
@@ -225,14 +182,14 @@ async function openLink(url: string): Promise<void> {
     <div class="setting-row">
       <div class="setting-info">
         <span class="setting-name">每个版本改了什么</span>
-        <span class="setting-desc">最新 {{ CHANGELOG[0]?.version }}，往前 {{ CHANGELOG.length }} 个版本</span>
+        <span class="setting-desc">当前版本 {{ CHANGELOG[0]?.version }}</span>
       </div>
       <button type="button" class="sv-btn" :class="{ on: changelogOpen }" @click="changelogOpen = !changelogOpen">
         <ChevronDown :size="12" :stroke-width="2" :class="{ 'cl-caret-open': changelogOpen }" />
         {{ changelogOpen ? '收起' : '展开' }}
       </button>
       <div v-if="changelogOpen" class="cl-list">
-        <p class="cl-tip">最新一版默认展开，点某一版可以展开 / 收起</p>
+        <p class="cl-tip">点版本号可以展开 / 收起</p>
         <div v-for="log in CHANGELOG" :key="log.version" class="cl-item">
           <!-- 版本头是原生 button：天然键盘可达，回车/空格就能展开 -->
           <button

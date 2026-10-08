@@ -25,8 +25,7 @@
 `xiaodao_work_<版本>_x64-setup.exe`，双击安装。
 
 - 要求：Windows 10 / 11（64 位）
-- 安装包**没有代码签名**，首次运行 Windows SmartScreen 会拦一下 ——
-  点「更多信息 → 仍要运行」即可。这是个人开发者的通行门槛，不是软件有问题。
+- 安装包**没有代码签名**，首次运行 Windows SmartScreen 会拦一下 —— 点「更多信息 → 仍要运行」即可。
 
 ## 数据放在哪
 
@@ -37,15 +36,6 @@
 就一个目录，里面是：待办清单（`待办.json`）、设置（`config.json`）、记账、专注记录、
 壁纸、备份、日志。**待办清单的位置不单独指定** —— 想换地方就在「设置 → 数据 → 存储」改数据目录，
 待办跟着一起走；换完用同一页的「复制位置说明」把新位置告诉 AI。
-
-> 以前待办文件是可以单独指到任何位置的（"它和 AI 共用，放哪都行"）。2026-09-30 起统一进数据目录：
-> 共用说的是**谁在写**，跟放在哪是两回事 —— 统一之后换目录、备份、初始化只用一条规则，
-> 不会再出现"待办留在旧目录"这种情况。老配置里那个位置会在**首次启动时自动复制**过来，
-> 旧位置那份原样保留（确认 AI 都跟过来了再自己删）。
-
-> **便携版已不再提供**（自 2026-09 起只出安装版，也不再维护那条打包脚本）。
-> 程序里"exe 旁边放一个名为 `portable` 的空文件 → 数据写在 `exe目录\data\`"的机制还在，
-> 你在本机自己这么放也照旧生效，只是我们不再打这种包。
 
 ## 隐私
 
@@ -83,8 +73,6 @@ npm run tauri:build    # 出安装包
 > ⚠️ 出正式包**只能用 `npm run tauri:build`**。直接 `cargo build --release` 会把开发服务器地址打进包里，
 > 双击只会弹「无法访问此页面」。
 
-发版流程、版本号要改哪几处、更新密钥怎么管：见 [RELEASE.md](RELEASE.md)。
-
 ## 许可证
 
 本项目自身：[MIT](LICENSE) © 2026 XIFOFLY
@@ -93,6 +81,6 @@ npm run tauri:build    # 出安装包
 
 | 组件 | 许可 | 说明 |
 |:--|:--|:--|
-| `MD-Preview.exe`（Markdown 预览器，装完在 `tools\` 下） | MIT © 2025 vorojar | 来源 [fisher158163/md-preview](https://github.com/fisher158163/md-preview)（上游 [vorojar/md-preview](https://github.com/vorojar/md-preview)）。许可原文随包附在 `tools\MD-Preview-LICENSE.txt`，仓库里同在 `src-tauri/tools/` |
+| `MD-Preview.exe`（Markdown 预览器，装完在 `tools\` 下） | MIT © 2025 vorojar | 来源 [md-preview](https://github.com/fisher158163/md-preview)，许可原文随包附在 `tools\MD-Preview-LICENSE.txt` |
 
 内置壁纸为作者自己拍摄 / 绘制，不含第三方权利。

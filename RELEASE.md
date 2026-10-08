@@ -35,7 +35,7 @@ npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key"
 
 | | 是什么 | 放哪 |
 |:--|:--|:--|
-| `xiaodao-work.key` | **私钥**，用来签名，绝不能泄露 | ① GitHub Secrets ② 你的密码管理器 ③ 「数字世界」的证照资料区 |
+| `xiaodao-work.key` | **私钥**，用来签名，绝不能泄露 | ① GitHub Secrets ② 你的密码管理器 ③ 另一处离线备份 |
 | 打印出来的那串 | **公钥**，写进 `tauri.conf.json` 的 `plugins.updater.pubkey` | 进仓库，公开的 |
 
 **⚠️ 私钥丢了会怎样**：以后发出去的包**永远无法被自动更新**，
@@ -49,13 +49,13 @@ npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key"
 所以本地每次出包前先设上：
 
 ```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\xiaodao-work.key"
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""
+$env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content "$env:USERPROFILE\.tauri\xiaodao-work.key" -Raw).Trim()
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "你设的密码"
 npm run tauri:build
 ```
 
 （这两个变量**只在当前这个终端窗口有效**，重开终端要再设一遍。
-密码留空是因为生成密钥时没设密码。）
+第一行读的是私钥文件的**内容** —— 给它文件路径不认，构建会报 `no private key`。）
 
 ### 3. GitHub Secrets
 
@@ -104,7 +104,7 @@ CI 会拿这个文件当 GitHub Release 的正文 —— **不用在网页上手
 ### 第 4 步：提交、打 tag、推
 
 ```powershell
-cd "E:\软件开发\04-程序开发\xiaodao_work"
+cd "<项目目录>"
 git add -A
 git commit -m "release: v1.1.2"
 git tag v1.1.2
@@ -140,7 +140,7 @@ git push --follow-tags
 - [ ] `git status` 里没有意外文件（尤其别把 `.key`、`data/`、`待办.json` 加进来）
 - [ ] 本地 `npm run tauri:dev` 起来跑一遍要改的那几个地方
 - [ ] 本地出包前设好了 `TAURI_SIGNING_PRIVATE_KEY`（不设会构建失败，见上面那节）
-- [ ] 本地 `npm run tauri:build` 能出包，并且**按 AGENTS.md 那套验包流程跑一次**（启动日志里要有 `启动自检 version=<新版本号>`）
+- [ ] 本地 `npm run tauri:build` 能出包，装完启动确认「设置 → 关于」里的版本号是新版本号
 
 ## 代码里那两个常量（改名时只改这处）
 
