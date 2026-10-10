@@ -50,7 +50,10 @@ export interface TodoOrigin {
 }
 
 export interface TodoItem {
-  /** 主键：自动生成 `i<base36>-<6位随机>`，也允许语义编号（如 `imp-062`） */
+  /**
+   * 主键：默认语义编号 `<域前缀>-<3位序号>`（如 `cl-001`，与 AI 侧同一套规则）；
+   * 域不在前缀映射表里才退回 `i<base36>-<6位随机>`。老编号（`imp-062` 等）原样保留。
+   */
   id: string
   title: string
   /** 工作底稿：只追加不覆盖 */

@@ -199,14 +199,54 @@ export function pad2(value: number): string {
 
 // ── 新建 ──────────────────────────────────────────────────────────────────
 
-/** 新 id：`i<base36 时间戳>-<6 位随机>` */
+/** 新 id：`i<base36 时间戳>-<6 位随机>`（域前缀映射不到时兜底用它） */
 export function nextId(): string {
   return `i${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 /**
+ * 语义化待办 id 的域前缀表：`<前缀>-<3 位序号>`。
+ *
+ * **必须与 AI 侧 `todo.py` 的 `DOMAIN_PREFIX` 逐字对齐** —— 两边写的是同一份
+ * `待办.json`，同域同前缀才不会出现"桌面端写 cl-003、技能那边又写 co-001"的分裂。
+ * 表里没有的域（用户自定义分类）→ 退回随机 id，不拦。
+ */
+const DOMAIN_PREFIX: Record<string, string> = {
+  client: 'cl',
+  company: 'co',
+  content: 'ct',
+  plan: 'plan',
+  assistant: 'as',
+  personal: 'pe',
+}
+
+/**
+ * 给定域，算出下一个语义 id（如 `cl-001`）。
+ *
+ * 扫的是**全部条目**（含已完成、已移出）—— 只数未完成的那些，删掉一条后
+ * 新条目会捡回它的号，跟历史记录撞上。
+ * 正则只认 `<前缀>-<纯数字>`，老编号（`imp-001`、`imtvb3v58-…`）不会被误吃。
+ * 前缀都是表里自己定的纯字母，不含正则特殊字符，直接拼即可。
+ */
+export function nextTodoId(domain: string, items: readonly TodoItem[]): string {
+  const prefix = DOMAIN_PREFIX[domain]
+  if (prefix === undefined) return nextId()
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`)
+  let max = 0
+  for (const item of items) {
+    const matched = pattern.exec(item.id)
+    if (matched !== null) max = Math.max(max, Number(matched[1]))
+  }
+  return `${prefix}-${String(max + 1).padStart(3, '0')}`
+}
+
+/**
  * 新建一条待办（只填标题的"快记"走这条路径，其余字段取默认值）。
  * 出生就记一条 create 流水 —— 否则"这条什么时候建的"只能靠 createdAt 猜。
+ *
+ * `existing` 是**现有清单**：语义编号要扫一遍它才知道下一个号是多少。
+ * 调用方在 `commit` 的 mutate 里拿到的 draft 就是它（含本次已 push 的条目）。
+ * 不传 → 退回随机 id（调用方拿不到清单时的安全退路）。
  */
 export function createItem(input: {
   title: string
@@ -225,14 +265,16 @@ export function createItem(input: {
   files?: string[]
   /** 关联待办 id */
   relates?: string[]
-}): TodoItem {
+}, existing: readonly TodoItem[] = []): TodoItem {
   const now = new Date().toISOString()
+  // 先把域归一化，再拿它算编号 —— 存进去的域和算号用的域必须是同一个值
+  const domain = normalizeDomain(input.domain)
   const item: TodoItem = {
-    id: nextId(),
+    id: nextTodoId(domain, existing),
     title: input.title.trim(),
     detail: (input.detail ?? '').trim(),
     summary: (input.summary ?? '').trim(),
-    domain: normalizeDomain(input.domain),
+    domain,
     owner: input.owner === 'agent' ? 'agent' : 'user',
     status: input.status === 'progress' ? 'progress' : 'todo',
     priority: input.priority === 'high' || input.priority === 'low' ? input.priority : 'mid',

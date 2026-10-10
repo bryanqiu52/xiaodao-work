@@ -54,6 +54,7 @@ export const SETTINGS_INDEX: SettingsIndexEntry[] = [
   { section: 'danger', title: "初始化" },
   { section: 'about', title: "小刀工作台" },
   { section: 'about', title: "更新" },
+  { section: 'about', title: "源码仓库" },
   { section: 'changelog', title: "每个版本改了什么" },
   { section: 'studio', title: "官网" },
   { section: 'studio', title: "邮箱" },

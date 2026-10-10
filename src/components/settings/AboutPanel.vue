@@ -15,7 +15,7 @@ const showToast = inject<(s: string) => void>('showToast', () => {})
 
 // 界面上显示的版本号。package.json / tauri.conf.json / Cargo.toml 三处都必须是
 // 三段 semver（安装包和 Windows 资源文件不认两段），这里跟它们保持一致
-const VERSION = '1.2.1'
+const VERSION = '1.3.0'
 
 /** 工作室信息。**对外统一口径**，取自品牌资料里的联系方式那一节，别另起一套 */
 const STUDIO = {
@@ -35,6 +35,17 @@ const STUDIO = {
  * 写了就是噪音（用户翻这个是想知道"我升级会得到什么"）。
  */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
+  {
+    version: '1.3.0',
+    date: '2026-10-10',
+    items: [
+      '新建的待办自动带**看得懂的编号**了（如 `cl-001`、`plan-002`）：由「领域前缀 + 序号」拼成，跟 AI 那边引用的是同一个号，跨对话找条目不费劲',
+      '按领域分别排号：客户业务的第 1 条是 `cl-001`，发展规划的是 `plan-001`；该领域已有编号的接着往下排，不会撞号',
+      '前缀对照：客户业务 `cl` / 公司建设 `co` / 内容创作 `ct` / 发展规划 `plan` / 小刀升级 `as` / 个人事务 `pe`',
+      '已有待办的编号**一个都没动**（`imp-…` 那些老编号照旧，关联关系不受影响）',
+      '自己加的领域分类仍用随机编号，不影响使用',
+    ],
+  },
   {
     version: '1.2.1',
     date: '2026-10-08',

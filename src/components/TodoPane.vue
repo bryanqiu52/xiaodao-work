@@ -266,7 +266,8 @@ async function run(mutate: (draft: TodoItem[]) => void, okText: string): Promise
 
 async function addDraft(d: DraftFields): Promise<void> {
   const input = draftToInput(d)
-  await run((draft) => draft.push(createItem(input)), '记下了')
+  // 把 draft 递给 createItem：语义编号要先扫一遍现有条目，才知道下一个号是多少
+  await run((draft) => draft.push(createItem(input, draft)), '记下了')
 }
 
 /**
