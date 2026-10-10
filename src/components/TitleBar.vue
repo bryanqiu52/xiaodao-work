@@ -9,7 +9,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 // 点顶部这个也是去记账
 import { Info, Minus, Pin, PinOff, Square, ThumbsUp, X } from 'lucide-vue-next'
 import { isTauri, tauriApi } from '../api/tauri'
+import { APP_VERSION } from '../core/constants'
 import { configStore } from '../stores/config'
+
+/** 标题栏上的版本号写法跟 tag / Release 一致：小写 v + 三段号 */
+const versionText = `v${APP_VERSION}`
 
 const pinned = computed(() => configStore.cfg.always_on_top)
 
@@ -102,6 +106,7 @@ async function togglePin(): Promise<void> {
     <div class="tb-left" data-tauri-drag-region>
       <img class="tb-mark" src="../assets/logo.png" alt="XIFOFLY" draggable="false" />
       <span class="tb-title">小刀工作台</span>
+      <span class="tb-ver">{{ versionText }}</span>
     </div>
 
     <div class="tb-right">
@@ -239,6 +244,15 @@ async function togglePin(): Promise<void> {
   font-size: calc(15px * var(--xd-font-scale));
   font-weight: 600;
   color: var(--xd-text);
+}
+
+/* 版本号：字号比标题小一档、颜色也压暗一档 —— 它在标题栏里是"标识"不是"内容"，
+   跟标题一样抢眼就成噪音了 */
+.tb-ver {
+  flex: none;
+  font-size: calc(11px * var(--xd-font-scale));
+  font-weight: 500;
+  color: var(--xd-text-dim);
 }
 
 /* 壁纸覆盖顶部：标题栏让位，只留一点磨砂。

@@ -77,7 +77,7 @@ CI 靠这两条给安装包签名 —— 少了它们，构建会失败（这是
 | `package.json` | `"version"` |
 | `src-tauri/tauri.conf.json` | `"version"` |
 | `src-tauri/Cargo.toml` | `version` |
-| `src/components/settings/AboutPanel.vue` | 顶部 `const VERSION` |
+| `src/core/constants.ts` | `APP_VERSION`（标题栏和「设置 → 关于」都读它） |
 
 版本号规则（语义化，别跳）：
 
