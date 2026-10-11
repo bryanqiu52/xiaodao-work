@@ -101,6 +101,29 @@ CI 靠这两条给安装包签名 —— 少了它们，构建会失败（这是
 
 CI 会拿这个文件当 GitHub Release 的正文 —— **不用在网页上手打**。
 
+### 第 3 步的另一半：更新检查读的 `latest.json`
+
+客户端查更新读的是 Release 资产里的 `latest.json`（最新版是哪版、签名是什么）。
+**它得手工拼** —— 本机打包这条链路上，CI 不产它。
+
+两个硬性要求：
+
+1. **必须无 BOM**。PowerShell 5.1 的 `Set-Content -Encoding UTF8` 写的是**带 BOM** 的 UTF-8
+   （前 3 字节 `239,187,191`），客户端会报 `error decoding response body` ——
+   把"文件坏了"报成"网络不通"，排查方向会被带断。
+   用 `[System.IO.File]::WriteAllBytes()` 写，或
+   `WriteAllText($p, $s, [System.Text.UTF8Encoding]::new($false))`
+   （`-Encoding utf8NoBOM` 是 PowerShell 7 才有的）。
+2. 上传同名文件要加 `--clobber`，否则因重名失败：
+   `gh release upload v<版本号> <latest.json> --clobber`
+
+**发完必回验**（本地那份对没用，得验线上的）：
+
+```powershell
+gh release download v<版本号> --pattern "latest.json" --dir <临时目录> --clobber
+```
+看拉回来那份的前 3 字节是不是 `123,13,10`（`{`）。
+
 ### 第 4 步：提交、打 tag、推
 
 ```powershell
@@ -131,6 +154,7 @@ git push --follow-tags
 | 构建红了 | 看 Actions 日志。90% 是 Secrets 没配、或 `docs/releases/vX.md` 文件名和 tag 对不上 |
 | 发出去才发现有问题 | **不要删 Release**（已经有人更新了）。改代码、升版本号、发下一版，在说明里写清修了什么 |
 | 只是说明写错了 | Releases 里点编辑改正文，不影响更新链路 |
+| 更新检查报 `error decoding response body` | 九成是 `latest.json` 带了 BOM（网络是好的，是文件坏了）。去掉 BOM、`--clobber` 重传、拉回来验前 3 字节，见第 3 步那一节 |
 | 私钥丢了 | 生成新的，把新公钥写进 `tauri.conf.json` 发一版。**老用户要手动重装一次**才能回到自动更新 —— 这就是为什么私钥要存三份 |
 
 ## 发布前自检（每次过一遍）
@@ -141,6 +165,7 @@ git push --follow-tags
 - [ ] 本地 `npm run tauri:dev` 起来跑一遍要改的那几个地方
 - [ ] 本地出包前设好了 `TAURI_SIGNING_PRIVATE_KEY`（不设会构建失败，见上面那节）
 - [ ] 本地 `npm run tauri:build` 能出包，装完启动确认「设置 → 关于」里的版本号是新版本号
+- [ ] 线上那份 `latest.json` **无 BOM**（拉回来验前 3 字节是 `123`），签名与 `.sig` 一致
 
 ## 代码里那两个常量（改名时只改这处）
 
