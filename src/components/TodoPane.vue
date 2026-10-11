@@ -16,7 +16,6 @@ import EditRow from './EditRow.vue'
 import Composer from './Composer.vue'
 import TransferForm from './TransferForm.vue'
 import FilterSheet from './FilterSheet.vue'
-import { logToBackend, onTodoFileChanged } from '../api/tauri'
 import { snoozeItem, SNOOZE_HOURS } from '../composables/useReminder'
 import { applyPatch } from '../core/patch'
 import { createItem, markDeleted, markDone, recordReview, recordTransfer, restoreItem } from '../core/rules'
@@ -365,17 +364,13 @@ function onKeydown(e: KeyboardEvent): void {
   void doUndo()
 }
 
-let unlisten: (() => void) | undefined
-onMounted(async () => {
-  unlisten = await onTodoFileChanged(() => {
-    logToBackend('info', '收到 todo-file-changed，重载清单')
-    void loadTodos()
-  })
-  if (!todoStore.fingerprint) await loadTodos()
+onMounted(() => {
+  // 外部改动的重载走 App 层的全局订阅（stores/todo.ts 的 watchTodoFileChanges），
+  // 这里只兜底：万一进面板时清单还没载过（指纹为空），补一次
+  if (!todoStore.fingerprint) void loadTodos()
   window.addEventListener('keydown', onKeydown)
 })
 onBeforeUnmount(() => {
-  unlisten?.()
   window.removeEventListener('keydown', onKeydown)
 })
 </script>

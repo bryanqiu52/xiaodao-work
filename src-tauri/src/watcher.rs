@@ -29,6 +29,10 @@ use crate::todo_io;
 /// 去抖窗口：连续事件静默这么久才算"改完了"
 const DEBOUNCE: Duration = Duration::from_millis(300);
 
+/// 静默期结束后读取文件失败时的重试次数与间隔
+const READ_RETRIES: usize = 5;
+const READ_RETRY_INTERVAL: Duration = Duration::from_millis(200);
+
 /// 监听哪一类文件。
 ///
 /// 两者的监听机制（目录 + 文件名过滤 + 去抖）完全一样，
@@ -127,12 +131,24 @@ fn handle_change(app: &AppHandle, file: &Path, kind: WatchKind) {
     let label = kind.label();
     match kind {
         WatchKind::Todo => {
-            let snapshot = match todo_io::read_todo(file) {
-                Ok(s) => s,
-                Err(e) => {
-                    log::warn!("[监听] 读取{}文件失败: {}", label, e);
-                    return;
+            // 读取可能撞上写入方的半程（不是所有工具都原子写）：失败别直接丢，
+            // 隔一小拍再读，几次都不行才放弃 —— 丢一次就是"AI 写了，界面看不到"
+            let mut snapshot = None;
+            for _ in 0..READ_RETRIES {
+                match todo_io::read_todo(file) {
+                    Ok(s) => {
+                        snapshot = Some(s);
+                        break;
+                    }
+                    Err(e) => {
+                        log::warn!("[监听] 读取{}文件失败: {}（稍后重试）", label, e);
+                        thread::sleep(READ_RETRY_INTERVAL);
+                    }
                 }
+            }
+            let Some(snapshot) = snapshot else {
+                log::warn!("[监听] {}文件连续读取失败，放弃通知这一轮改动", label);
+                return;
             };
             // 自己刚写的：指纹一致，忽略
             if let Some(last) = todo_io::last_write_fingerprint() {

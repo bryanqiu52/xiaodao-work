@@ -32,6 +32,13 @@ const STUDIO = {
  */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: '1.3.1',
+    date: '2026-10-11',
+    items: [
+      '待办文件被 AI 或别的程序改动后，界面会**自己更新**了：新条目直接出现在列表里，不用再切一下页面或重开应用',
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-10-10',
     items: [

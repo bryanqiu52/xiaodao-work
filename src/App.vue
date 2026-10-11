@@ -20,7 +20,7 @@ import WelcomeWizard from './components/WelcomeWizard.vue'
 import ConfirmSheet from './components/ConfirmSheet.vue'
 import UpdateSheet from './components/UpdateSheet.vue'
 import { loadConfig, configStore, applyTheme, saveConfig } from './stores/config'
-import { loadTodos } from './stores/todo'
+import { loadTodos, watchTodoFileChanges } from './stores/todo'
 import { useReminder } from './composables/useReminder'
 import { startFocus, stopFocus } from './composables/useFocus'
 import { loadFocusLog } from './composables/useFocusLog'
@@ -117,6 +117,9 @@ function onWindowLeave(): void {
 onMounted(async () => {
   await loadConfig()
   await loadTodos()
+  // 外部改动（AI 直接改待办文件）的重载：在这里全局订一次。
+  // 之前挂在待办面板组件里，人停在别的页面时事件没人接，切回来看到的还是旧的
+  void watchTodoFileChanges()
   // 专注记录：番茄页（"这条累计几个番茄"）和回顾页都要它。
   // 在 App 层读一次就够 —— 两个页面共用同一份内存，避免各读各的、数字还对不上
   void loadFocusLog()

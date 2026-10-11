@@ -6,7 +6,7 @@
 //   - 文件被外部改动（AI）时整份重载。
 
 import { reactive } from 'vue'
-import { tauriApi } from '../api/tauri'
+import { logToBackend, tauriApi, onTodoFileChanged } from '../api/tauri'
 import { normalizeItem } from '../core/normalize'
 import { auditItems, reconcileDoneState } from '../core/rules'
 import { cloneItems, makeUndoStack } from '../core/undo'
@@ -175,4 +175,18 @@ export async function undo(): Promise<string | null> {
 /** 按 id 找一条（返回引用，只读用途；要改请用 commit） */
 export function findItem(id: string): TodoItem | undefined {
   return todoStore.items.find((it) => it.id === id)
+}
+
+/**
+ * 全局订阅「待办文件被外部改动」（AI 直接改文件）→ 整份重载。
+ *
+ * **必须在 App 层订一次**，不能挂在待办面板组件里：那个面板是切页就卸载的，
+ * 挂在里面，人停在别的页面时事件就发给没人接的频道 —— 等切回来，
+ * 又因为指纹已经是旧的还留着、不会触发重载，表现出来就是"AI 写了，界面看不到"。
+ */
+export async function watchTodoFileChanges(): Promise<void> {
+  await onTodoFileChanged(() => {
+    logToBackend('info', '收到 todo-file-changed，重载清单')
+    void loadTodos()
+  })
 }
