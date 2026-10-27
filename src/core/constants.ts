@@ -216,7 +216,7 @@ export const ID_SHORT_MAX = 14
  *
  * 只留这一份：两个界面各写一份，迟早会出现"标题栏 1.3.0、关于里还是 1.2.1"。
  */
-export const APP_VERSION = '1.3.1'
+export const APP_VERSION = '1.3.2'
 
 // ── GitHub（版本发布与更新检查）────────────────────────────────────────────
 

@@ -27,6 +27,8 @@
 //! **代价得记着**：`WS_EX_TOOLWINDOW` 的窗口不进 Alt+Tab。这是 Quicker 那类常驻
 //! 工具的常规做法 —— 唤回窗口靠托盘左键 / 全局快捷键。
 
+use std::time::Duration;
+
 use tauri::{AppHandle, Manager, WebviewWindow};
 
 /// 唤起窗口前调一次：窗口不在当前桌面就把它搬过来。
@@ -57,6 +59,26 @@ pub fn hide_from_taskbar(app: &AppHandle) -> bool {
         return false;
     };
     hide_from_taskbar_win(&win)
+}
+
+/// **常驻盯着**任务栏图标，别让它又挂回去。
+///
+/// **只在启动时摘一次是不够的**：窗口样式会在运行途中被改回去 —— 实测就是毫无征兆地
+/// 又冒出一个任务栏图标，那一刻离启动早就过去很久了（查到的时候样式是
+/// `APPWINDOW | TOPMOST`，我们设的 `TOOLWINDOW` 已经被抹掉）。
+/// Windows 不给"窗口样式变了"的通知，光看代码也问不出是谁改的，所以不猜了：**盯住结果** ——
+/// 每几秒看一眼，不对就改回来；一次检查就是读一遍窗口样式，开销可以忽略。
+pub fn start_taskbar_guard(app: &AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        let handle = app.clone();
+        std::thread::spawn(move || loop {
+            hide_from_taskbar(&handle);
+            std::thread::sleep(Duration::from_millis(2500));
+        });
+    }
+    #[cfg(not(target_os = "windows"))]
+    let _ = app;
 }
 
 #[cfg(target_os = "windows")]

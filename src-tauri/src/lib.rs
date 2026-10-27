@@ -201,15 +201,9 @@ pub fn run() {
                 // **副作用得记着**：靠的是"工具窗口"属性，Alt+Tab 里也会跟着没有 ——
                 // 唤回窗口只能靠托盘左键 / 全局快捷键。
                 desktop::hide_from_taskbar(&handle);
-                // 启动这一阵子窗口样式会被系统 / WebView 反复重套（尺寸那件事已经
-                // 领教过一次），隔几拍再确认一次，别让图标又挂回去。
-                let tb_handle = handle.clone();
-                std::thread::spawn(move || {
-                    for step in [300u64, 700, 1200] {
-                        std::thread::sleep(Duration::from_millis(step));
-                        desktop::hide_from_taskbar(&tb_handle);
-                    }
-                });
+                // 光摘这一次不够：跑着跑着样式还会被改回去（2026-10-27 就冒出来过一次），
+                // 交给常驻守卫盯着 —— 见 desktop::start_taskbar_guard 的说明。
+                desktop::start_taskbar_guard(&handle);
                 bind_window_events(&handle, &win);
                 if launched_by_autostart {
                     // 开机拉起来的：尺寸位置照样恢复，但不弹出来。托盘图标已经在了，

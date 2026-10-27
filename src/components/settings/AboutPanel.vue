@@ -32,6 +32,14 @@ const STUDIO = {
  */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: '1.3.2',
+    date: '2026-10-27',
+    items: [
+      '产出文件的右键菜单里「打开所在文件夹」会**真的打开那个文件夹、并把文件选中**（原先只弹出一个资源管理器，停在它自己的位置）',
+      '任务栏不再自己冒出图标：跑一阵子之后偶尔会多出一个任务栏按钮，现在会退回只留托盘的样子',
+    ],
+  },
+  {
     version: '1.3.1',
     date: '2026-10-11',
     items: [

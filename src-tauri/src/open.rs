@@ -104,6 +104,20 @@ fn in_whitelist(p: &Path, cfg: &AppConfig) -> bool {
     false
 }
 
+/// 整成 explorer 认得出来的路径：反斜杠分隔、不带 `\\?\` 前缀的朴素路径。
+///
+/// **这是真踩过一次的坑**：待办里的 `files` 是 AI 写的，写成 `E:/某某/产出.jpg` 很常见。
+/// Windows 自己的文件 API 认正斜杠，所以上面 `exists()`、白名单检查一路顺风，
+/// **偏偏 explorer 不认** —— 它拿到 `/select,"E:/某某/产出.jpg"` 当无效参数处理，
+/// 表现就是"资源管理器确实弹出来了，但停在它自己的默认位置，压根没去那个文件夹"。
+/// 同一条路径把 `/` 换成 `\` 就正常了（实测过，别凭想象改回去）。
+///
+/// `canonicalize` 顺手把盘符大小写、`.`/`..` 都理成真身，再用 `simplify_path` 剥掉 `\\?\`
+/// —— 这两样交给 explorer 同样不保险，一次做干净。
+fn explorer_path(p: &Path) -> String {
+    simplify_path(&canonical(p)).to_string_lossy().replace('/', "\\")
+}
+
 fn canonical(p: &Path) -> PathBuf {
     std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
 }
@@ -126,20 +140,18 @@ fn is_previewable(p: &Path) -> bool {
 
 /// 打开文件夹；传了 `select` 就用 `explorer /select,` 顺带选中那个文件
 ///
-/// **这里有两层坑，缺一层都不对**：
+/// **路径必须先过 `explorer_path`** —— explorer 是这套操作里唯一"有自己的脾气"的外部程序，
+/// 它不认正斜杠，也不一定认 `\\?\` 前缀。详见那个函数的说明。
 ///
-/// 1. `/select,` 后面的路径**必须自带双引号** —— explorer 会**自己按空格切分**这个参数，
-///    而用户自己的目录名多半带空格（`D:\我的 文档\...`），不引起来就会拿半截当参数、
-///    半截当文件名，表现为"打开的文件夹不对、选中的也不对"。
-/// 2. 这层引号**必须用 `raw_arg` 传**，不能用 `arg`。`arg` 会再做一遍引号转义
-///    （把我们写的 `"` 变成 `\"`），explorer 收到的是被改造过的参数，照样错。
-///    凡是"参数内部还有自己分隔规则"的外部程序（explorer /select、cmd /c 之类），
-///    一律 `raw_arg` 原样交给它，别让 Rust 插手。
+/// **参数必须用 `raw_arg` 传**，不能用 `arg`：`/select,` 后面的东西是 explorer 自己的一套
+/// 分隔规则，`arg` 会把整串看成一个"普通参数"再加引号转义，explorer 收到的是被改造过的东西。
+/// 凡是"参数内部还有自己分隔规则"的外部程序（explorer /select、cmd /c 之类），
+/// 一律 `raw_arg` 原样交给它，别让 Rust 插手。
 fn open_folder(dir: &Path, select: Option<&Path>) -> String {
     let mut cmd = Command::new("explorer");
     let shown = match select {
-        Some(p) => format!("/select,\"{}\"", p.to_string_lossy()),
-        None => format!("\"{}\"", dir.to_string_lossy()),
+        Some(p) => format!("/select,\"{}\"", explorer_path(p)),
+        None => format!("\"{}\"", explorer_path(dir)),
     };
     log::info!("[打开产出] explorer {}", shown);
     #[cfg(windows)]
