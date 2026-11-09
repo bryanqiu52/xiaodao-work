@@ -100,7 +100,7 @@ fn default_true() -> bool {
     true
 }
 fn default_keep() -> u32 {
-    14
+    3
 }
 /// 界面字号百分比（100 = 原始大小；只缩放字号与行高，间距不动）
 fn default_ui_scale() -> u32 {

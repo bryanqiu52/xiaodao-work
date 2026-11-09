@@ -185,7 +185,7 @@ export function defaultConfig(): AppConfig {
     preview_exe: '',
     open_roots: [],
     backup_enabled: true,
-    backup_keep: 14,
+    backup_keep: 3,
     remind_enabled: true,
     // 默认提前一天：当天才提醒往往已经来不及准备了
     remind_advance_days: 1,
