@@ -52,10 +52,11 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # 这两个是更新签名用的。**没配的话这一步会直接失败** —— 这是故意的：
+          # 更新签名用的私钥。**没配的话这一步会直接失败** —— 这是故意的：
           # 签不出名的包一旦发出去，用户端会校验不过、装不上
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # 新密钥不带密码；显式给空值，否则 CLI 会弹交互提示把 CI 卡住
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         with:
           tagName: ${{ env.RELEASE_TAG }}
           releaseName: 小刀工作台 ${{ env.RELEASE_TAG }}
