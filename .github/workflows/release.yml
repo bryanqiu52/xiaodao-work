@@ -8,6 +8,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: '要构建的 tag，例如 v1.4.0（手动触发时必填）'
+        required: true
+        type: string
 
 jobs:
   release:
@@ -15,6 +20,9 @@ jobs:
     permissions:
       # 建 Release、传附件都要它。**这是仓库自带的 token，不需要额外配密钥**
       contents: write
+    env:
+      # push tag 触发时取 tag 名；手动触发时取填进来的 tag。两种入口统一走这个变量。
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +42,12 @@ jobs:
       - name: 装依赖
         run: npm ci
 
+      # tauri-bundler 打包时会单次、不重试地下载 NSIS 工具，一个 504 就毁掉整条流水线。
+      # 先把工具摆进它的缓存目录（脚本内部带重试和 SHA1 校验），打包时就会跳过下载。
+      - name: 预置 NSIS 打包工具
+        shell: pwsh
+        run: ./.github/scripts/prefetch-tauri-tools.ps1
+
       - name: 构建并建 Release（草稿）
         uses: tauri-apps/tauri-action@v0
         env:
@@ -43,12 +57,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 小刀工作台 ${{ github.ref_name }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: 小刀工作台 ${{ env.RELEASE_TAG }}
           releaseBody: |
             ⚠️ 这份说明还没写。
 
-            请把 `docs/releases/${{ github.ref_name }}.md` 的内容粘进来（流程见 RELEASE.md）。
+            请把 `docs/releases/${{ env.RELEASE_TAG }}.md` 的内容粘进来（流程见 RELEASE.md）。
           # 草稿：发布前你自己看一眼，点 Publish 才对外可见
           releaseDraft: true
           prerelease: false
@@ -61,13 +75,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" != "push" ]; then
-            echo "手动触发的试跑，没有 tag，跳过"
-            exit 0
-          fi
-          file="docs/releases/${{ github.ref_name }}.md"
+          file="docs/releases/${RELEASE_TAG}.md"
           if [ -f "$file" ]; then
-            gh release edit "${{ github.ref_name }}" --notes-file "$file"
+            gh release edit "${RELEASE_TAG}" --notes-file "$file"
             echo "已用 $file 覆盖 Release 正文"
           else
             # 不判失败：Release 已经建出来了，这时候让整条流水线红掉只会更乱。
