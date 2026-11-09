@@ -26,9 +26,11 @@
 
 自动更新要能验证"这个包确实是本项目发的、没被人换过"，所以要有签名密钥。
 
+**当前这把密钥是 2026-11-09 换的，不带密码**（当时还没有用户，换密钥没有代价）。
+
 ```powershell
-# 在项目根目录跑。它会问你要不要给私钥设密码 —— **建议设**，然后记进密码管理器
-npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key"
+# 在项目根目录跑。`--ci` = 不弹密码提示，`-f` = 覆盖同名文件
+npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key" -f --ci
 ```
 
 它会产出两个东西：
@@ -36,13 +38,14 @@ npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key"
 | | 是什么 | 放哪 |
 |:--|:--|:--|
 | `xiaodao-work.key` | **私钥**，用来签名，绝不能泄露 | ① GitHub Secrets ② 你的密码管理器 ③ 另一处离线备份 |
-| 打印出来的那串 | **公钥**，写进 `tauri.conf.json` 的 `plugins.updater.pubkey` | 进仓库，公开的 |
+| `xiaodao-work.key.pub` | **公钥**，写进 `tauri.conf.json` 的 `plugins.updater.pubkey` | 进仓库，公开的 |
 
 **⚠️ 私钥丢了会怎样**：以后发出去的包**永远无法被自动更新**，
 已经装了的老用户只能手动重装一次才能回到更新链路上。密钥能重新生成，但新旧对不上。
 所以存三份，别只放本地。
 
 `*.key` 已经在 `.gitignore` 里 —— **任何情况下都别把它提交上去**。
+私钥只进 GitHub 的加密 Secrets：网页上看不到明文，仓库代码里也没有。
 
 **本地出包也要带着它。** 打开 `createUpdaterArtifacts` 之后，`tauri build` 会要求签名密钥 ——
 没设就**直接失败**（这是故意的：签不出名的包一旦发出去，用户端校验不过、装不上）。
@@ -50,7 +53,7 @@ npm run tauri signer generate -- -w "$env:USERPROFILE\.tauri\xiaodao-work.key"
 
 ```powershell
 $env:TAURI_SIGNING_PRIVATE_KEY = (Get-Content "$env:USERPROFILE\.tauri\xiaodao-work.key" -Raw).Trim()
-$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "你设的密码"
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = ""   # 密钥无密码；这行不能省，省了 CLI 会弹交互提示把命令卡住
 npm run tauri:build
 ```
 
@@ -59,25 +62,37 @@ npm run tauri:build
 
 ### 3. GitHub Secrets
 
-仓库 → Settings → Secrets and variables → Actions，加两条：
+仓库 → Settings → Secrets and variables → Actions，**只需要一条**：
 
 | Name | Value |
 |:--|:--|
-| `TAURI_SIGNING_PRIVATE_KEY` | 私钥文件的**全部内容**（把 `.key` 文件内容整段复制） |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | 上面设的那个密码（没设密码就留空字符串） |
+| `TAURI_SIGNING_PRIVATE_KEY` | 私钥文件的全部内容 |
 
-CI 靠这两条给安装包签名 —— 少了它们，构建会失败（这是故意的：**签不出名的包别发**）。
+用**文件直接喂进去**，别手动复制粘贴 —— 贴的时候容易把 UTF-8 BOM 一起带进去
+（CI 会报 `Invalid symbol 239, offset 0`，而本机文件其实是干净的）：
+
+```bash
+# 在 Git Bash 里跑（PowerShell 不支持 < 输入重定向）
+gh secret set TAURI_SIGNING_PRIVATE_KEY --repo bryanqiu52/xiaodao-work < "C:/Users/123/.tauri/xiaodao-work.key"
+```
+
+密钥不带密码，**不需要** `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`；
+流水线里那行显式写成空字符串，避免 CLI 弹交互提示把 CI 卡住。
+
+CI 靠这条给安装包签名 —— 少了它，构建会失败（这是故意的：**签不出名的包别发**）。
 
 ## 日常发版
 
-### 第 1 步：改版本号（**四处，漏一处就出鬼**）
+### 第 1 步：改版本号（**六处，漏一处就出鬼**）
 
 | 文件 | 字段 |
 |:--|:--|
 | `package.json` | `"version"` |
 | `src-tauri/tauri.conf.json` | `"version"` |
 | `src-tauri/Cargo.toml` | `version` |
+| `src-tauri/Cargo.lock` | 只改 `name = "xiaodao_work"` 下面那处（**别误改依赖里的同名版本号**） |
 | `src/core/constants.ts` | `APP_VERSION`（标题栏和「设置 → 关于」都读它） |
+| `src/components/settings/AboutPanel.vue` | `CHANGELOG` 最前面加一条 |
 
 版本号规则（语义化，别跳）：
 
@@ -104,7 +119,8 @@ CI 会拿这个文件当 GitHub Release 的正文 —— **不用在网页上手
 ### 第 3 步的另一半：更新检查读的 `latest.json`
 
 客户端查更新读的是 Release 资产里的 `latest.json`（最新版是哪版、签名是什么）。
-**它得手工拼** —— 本机打包这条链路上，CI 不产它。
+**`tauri-action` 会自动生成并上传它**，草稿里能直接看到 `latest.json`、
+安装包和 `.sig` 三个文件，不用手工拼（下面的 BOM 检查只在手工改过它之后才需要做）。
 
 两个硬性要求：
 
@@ -130,9 +146,20 @@ gh release download v<版本号> --pattern "latest.json" --dir <临时目录> --
 cd "<项目目录>"
 git add -A
 git commit -m "release: v1.1.2"
-git tag v1.1.2
-git push --follow-tags
+git tag -a v1.1.2 -m "release: v1.1.2"
+git push origin main
+git push origin v1.1.2
 ```
+
+**两个坑**：
+- `git tag vX`（轻量 tag）+ `git push --follow-tags` **不会把 tag 推上去**，CI 压根不触发。
+  要么打 `-a` 附注 tag，要么像上面那样显式推 tag；推完用
+  `git ls-remote --tags origin v1.1.2` 确认远程真的有。
+- 在这个 WorkBuddy 会话里推 GitHub 要用系统 Git
+  （`"/c/Program Files/Git/cmd/git.exe"`），自带的 PortableGit 会报证书吊销错误。
+
+只改了流水线、不想动 tag 时，也可以手动触发并填 tag 重跑：
+`gh workflow run release.yml --repo bryanqiu52/xiaodao-work --ref main -f tag=v1.1.2`
 
 推上去之后 GitHub Actions 自动开跑（约 5–10 分钟）。
 
@@ -159,7 +186,7 @@ git push --follow-tags
 
 ## 发布前自检（每次过一遍）
 
-- [ ] 版本号**四处**都改了，且一致
+- [ ] 版本号**六处**都改了，且一致
 - [ ] `CHANGELOG` 加了条目，`docs/releases/vX.Y.Z.md` 建了，**文件名和 tag 一致**
 - [ ] `git status` 里没有意外文件（尤其别把 `.key`、`data/`、`待办.json` 加进来）
 - [ ] 本地 `npm run tauri:dev` 起来跑一遍要改的那几个地方
