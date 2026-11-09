@@ -71,9 +71,11 @@ export function itemsForScope(items: readonly TodoItem[], scope: 'pending' | 'do
  * 追加一条动作流水。**这是"事实"那一半，程序自己记，不靠谁自觉。**
  *
  * 每个改状态的入口都必须调它 —— 漏一个，那条路径就变成查不到的黑洞。
+ * 桌面端自己点的操作，来源一律记「桌面端」（不靠调用方自觉传）；
+ * AI 侧写进来的流水自带「软件 / 模型」，不经过这里，也不会被覆盖。
  */
 export function recordTrail(item: TodoItem, kind: TodoTrail['kind'], text: string, by = ''): void {
-  item.trail = [...item.trail, { kind, at: new Date().toISOString(), text, by }]
+  item.trail = [...item.trail, { kind, at: new Date().toISOString(), text, by: by || '桌面端' }]
 }
 
 /** 状态的中文名，写流水时用 —— 让流水是"人话" */
@@ -209,7 +211,11 @@ export function nextId(): string {
  *
  * **必须与 AI 侧 `todo.py` 的 `DOMAIN_PREFIX` 逐字对齐** —— 两边写的是同一份
  * `待办.json`，同域同前缀才不会出现"桌面端写 cl-003、技能那边又写 co-001"的分裂。
- * 表里没有的域（用户自定义分类）→ 退回随机 id，不拦。
+ *
+ * ⚠️ 这张表**不是「要维护的分类清单」**，只是**历史兼容层**：这几个域早期就用这些
+ * 短前缀发过号（`co-004` / `ct-013` …），改成全名会让同一分类分裂成两套序号
+ * （`co-005` 与 `company-001` 并存）。**新增分类一律不用往这里加** ——
+ * 前缀由 `domainPrefix()` 从分类名自动派生，加不加这一行都能出正确的 id。
  */
 const DOMAIN_PREFIX: Record<string, string> = {
   client: 'cl',
@@ -218,6 +224,31 @@ const DOMAIN_PREFIX: Record<string, string> = {
   plan: 'plan',
   assistant: 'as',
   personal: 'pe',
+  work: 'work',
+  dev: 'dv',
+}
+
+/**
+ * 从分类名推出 id 前缀 —— **零配置**，新分类不需要在任何地方登记。
+ *
+ * 与 `todo.py` 的 `domain_prefix()` 同规则：
+ * 1. 历史短前缀优先（只为不把老编号劈成两套）
+ * 2. 其余规范化分类名：只留字母 / 数字 / 汉字并转小写，直接当前缀
+ *    `video` → `video-001`｜`业务` → `业务-001`｜`财务-对账` → `财务对账-001`
+ * 3. 空名或纯符号 → 用 `t` 兜底（`t-001`）
+ *
+ * **任何分支都不再返回随机 id** —— 那种 id 人读不出来，也没法在对话里引用，
+ * 正是 `work` 域整批变成 `i6adf34a3-uu8pkw` 的成因。
+ */
+export function domainPrefix(domain: string): string {
+  const key = (domain ?? '').trim().toLowerCase()
+  const known = DOMAIN_PREFIX[key]
+  if (known !== undefined) return known
+  // \p{L} 覆盖汉字/日文/全角字母，\p{N} 覆盖数字，比写死字符集稳
+  const norm = Array.from(key)
+    .filter((ch) => /[\p{L}\p{N}]/u.test(ch))
+    .join('')
+  return norm.slice(0, 16) || 't'
 }
 
 /**
@@ -226,11 +257,10 @@ const DOMAIN_PREFIX: Record<string, string> = {
  * 扫的是**全部条目**（含已完成、已移出）—— 只数未完成的那些，删掉一条后
  * 新条目会捡回它的号，跟历史记录撞上。
  * 正则只认 `<前缀>-<纯数字>`，老编号（`imp-001`、`imtvb3v58-…`）不会被误吃。
- * 前缀都是表里自己定的纯字母，不含正则特殊字符，直接拼即可。
+ * 前缀由 `domainPrefix()` 派生，**不存在「没登记就退化」的分支**。
  */
 export function nextTodoId(domain: string, items: readonly TodoItem[]): string {
-  const prefix = DOMAIN_PREFIX[domain]
-  if (prefix === undefined) return nextId()
+  const prefix = domainPrefix(domain)
   const pattern = new RegExp(`^${prefix}-(\\d+)$`)
   let max = 0
   for (const item of items) {

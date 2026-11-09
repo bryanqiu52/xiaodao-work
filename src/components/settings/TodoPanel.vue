@@ -102,7 +102,7 @@ async function removeDomain(key: string): Promise<void> {
             kind: 'edit',
             at: new Date().toISOString(),
             text: `分类「${name}」被删掉了，归到「${domainName(target)}」`,
-            by: '',
+            by: '桌面端',
           })
         }
       }

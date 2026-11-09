@@ -32,6 +32,14 @@ const STUDIO = {
  */
 const CHANGELOG: { version: string; date: string; items: string[] }[] = [
   {
+    version: '1.4.0',
+    date: '2026-11-09',
+    items: [
+      '**脉络流水里能看出是哪边改的了**：AI 改的标出「软件 / 模型」（如 `WorkBuddy / Claude Opus`），在界面上自己点的标「桌面端」',
+      '以前留下的老流水没有这个信息，保持原样，不会凭空补写',
+    ],
+  },
+  {
     version: '1.3.2',
     date: '2026-10-27',
     items: [

@@ -107,6 +107,7 @@ function stamp(iso: string): string {
           <span class="ctx-time">
             {{ stamp(t.at) }}
             <span class="ctx-kind" :class="`k-${t.kind}`">{{ TRAIL_KIND_LABELS[t.kind] ?? '' }}</span>
+            <span v-if="t.by" class="ctx-by xd-select">· {{ t.by }}</span>
           </span>
           <span class="ctx-text xd-select">{{ t.text }}</span>
         </li>
@@ -242,6 +243,16 @@ function stamp(iso: string): string {
   font-family: inherit;
   font-size: calc(11px * var(--xd-font-scale));
   line-height: calc(16px * var(--xd-font-scale));
+}
+
+/* 谁改的：好几个 AI 共写一份待办，流水上得能看出是哪边动的手。
+   老流水 by 为空，整块不渲染，不会留个孤零零的点 */
+.ctx-by {
+  margin-left: 4px;
+  color: var(--xd-text-dim);
+  font-family: inherit;
+  font-size: calc(11px * var(--xd-font-scale));
+  opacity: 0.8;
 }
 
 /* 评审和转手是"别人动了这条"，标出来 —— 翻一长串流水时先看见这两类 */

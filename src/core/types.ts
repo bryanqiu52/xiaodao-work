@@ -39,7 +39,7 @@ export interface TodoTrail {
   kind: TrailKind
   at: string
   text: string
-  /** 来源会话 id（桌面端拿不到，留空） */
+  /** 谁干的：AI 侧「软件 / 模型」，桌面端「桌面端」；老数据留空 */
   by: string
 }
 
